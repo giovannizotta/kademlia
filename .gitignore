@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+kademlia.pdf
+chord.pdf
 __pycache__/
 *.py[cod]
 *$py.class
