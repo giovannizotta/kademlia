@@ -4,7 +4,7 @@ from kad.simulator import Simulator
 from kad.rbg import RandomBatchGenerator as RBG
 
 N_NODES = 10
-MAX_TIME = 100.0
+MAX_TIME = 10.0
 
 
 def create_nodes(env: simpy.Environment, n_nodes: int) -> List[Node]:
@@ -12,6 +12,10 @@ def create_nodes(env: simpy.Environment, n_nodes: int) -> List[Node]:
     nodes = list()
     for i in range(N_NODES):
         nodes.append(Node(env, i))
+    # hardwire ring
+    nodes[0].neigh = nodes[1]
+    nodes[1].neigh = nodes[2]
+    nodes[2].neigh = nodes[0]
     return nodes
 
 
