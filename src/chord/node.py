@@ -12,3 +12,4 @@ class ChordNode(Node):
         neigh: Node = None,
     ):
         super().__init__(env, _id, serve_mean, timeout, neigh)
+

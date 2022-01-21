@@ -40,7 +40,7 @@ class Simulator:
                 node.wait_request(
                     packet,
                     tmp_event,
-                    node.get_key_request,
+                    node.on_find_node_request,
                     dict(key=key, forward=True)
                 )
             )

@@ -21,7 +21,7 @@ class Node(ABC):
         self.rbg = RBG()
         self.neigh = neigh
         self.in_queue = simpy.Resource(env, capacity=1)
-        self.queue_size = 0
+        self.dict = dict()
 
     def log(self, msg: str) -> None:
         print(f"{self.env.now:5.1f} Node {self.id}: {msg}")
@@ -53,14 +53,13 @@ class Node(ABC):
                                         **timeout_args)
         else:
             # wait queue
-            self.log(f"receive packet {packet} queue size {self.queue_size}")
+            self.log(
+                f"receive packet {packet} queue size {len(self.in_queue.queue)}")
             with self.in_queue.request() as req:
-                self.queue_size += 1
                 yield req
                 # serve request
-                yield from succ_callback(packet, sent_req, recv_req, **succ_args)
-            self.queue_size -= 1
-            self.log(f"Served packet {packet}, {self.queue_size}")
+                yield from succ_callback(packet, recv_req, **succ_args)
+            self.log(f"Served packet {packet}, {len(self.in_queue.queue)}")
 
     def wait_request(
         self,
@@ -73,8 +72,29 @@ class Node(ABC):
         transmission_time = self.rbg.get_exponential(self.serve_mean)
         propagation_delay = self.env.timeout(transmission_time)
         yield propagation_delay
-        self.log(f"receive packet {packet} queue size {self.queue_size}")
+        self.log(
+            f"receive packet {packet} queue size {len(self.in_queue.queue)}")
         with self.in_queue.request() as req:
-            self.queue_size += 1
             yield req
             yield from callback(packet, recv_req, **callback_args)
+
+    @abstractmethod
+    def on_find_node_request(
+            self,
+            packet: int,
+            recv_req: simpy.Event,
+            key: int):
+        pass
+
+    @abstractmethod
+    def _on_find_node_response(
+        self,
+        packet: int,
+        recv_req: simpy.Event,
+        from_node: Node
+    ) -> SimpyProcess:
+        pass
+
+    @abstractmethod
+    def _on_find_node_timeout(self):
+        pass

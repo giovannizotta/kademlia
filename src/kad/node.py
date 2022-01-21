@@ -13,7 +13,7 @@ class KadNode(Node):
     ):
         super().__init__(env, _id, serve_mean, timeout, neigh)
 
-    def get_key_request(
+    def on_find_node_request(
             self,
             packet: int,
             recv_req: simpy.Event,
@@ -32,7 +32,7 @@ class KadNode(Node):
                 next_node.wait_request(
                     packet,
                     sent_req,
-                    next_node.get_key_request,
+                    next_node.on_find_node_request,
                     dict(key=key, forward=False)
                 )
             )
@@ -42,9 +42,9 @@ class KadNode(Node):
                     packet,
                     sent_req,
                     recv_req,
-                    self.get_key_response,
+                    self._on_find_node_response,
                     dict(from_node=next_node),
-                    self.get_key_timeout,
+                    self._on_find_node_timeout,
                     dict()
                 )
             )
@@ -52,12 +52,12 @@ class KadNode(Node):
             self.log(f"packet {packet} -> key {key} found")
             recv_req.succeed()
 
-    def get_key_response(
-            self,
-            packet: int,
-            sent_req: simpy.Event,
-            recv_req: simpy.Event,
-            from_node: Node) -> SimpyProcess:
+    def _on_find_node_response(
+        self,
+        packet: int,
+        recv_req: simpy.Event,
+        from_node: Node
+    ) -> SimpyProcess:
         """Manage the response of a get key request"""
         # wait some time
         service_time = self.rbg.get_exponential(self.serve_mean)
@@ -66,6 +66,6 @@ class KadNode(Node):
         # answer with the received key
         recv_req.succeed()
 
-    def get_key_timeout(self) -> SimpyProcess:
+    def _on_find_node_timeout(self) -> SimpyProcess:
         # do nothing at the moment
         raise StopIteration

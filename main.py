@@ -10,7 +10,7 @@ MAX_TIME = 10.0
 
 def create_nodes(env: simpy.Environment, n_nodes: int) -> List[Node]:
     """Instantiate the nodes for the simulation"""
-    nodes = list()
+    nodes: List[Node] = list()
     for i in range(n_nodes):
         nodes.append(KadNode(env, i))
     # hardwire ring
