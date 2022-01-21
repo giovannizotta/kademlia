@@ -3,6 +3,7 @@ from common.node import Node
 from kad.node import KadNode
 from common.simulator import Simulator
 from common.rbg import RandomBatchGenerator as RBG
+from argparse import ArgumentParser, Namespace
 
 N_NODES = 10
 MAX_TIME = 10.0
@@ -20,14 +21,32 @@ def create_nodes(env: simpy.Environment, n_nodes: int) -> Sequence[Node]:
     return nodes
 
 
+def parse_args() -> Namespace:
+    ap = ArgumentParser("Kademlia and chord simulator")
+    ap.add_argument("-t", "--max-time", type=float, default=10.0,
+                    help="Maximum time to run the simulation")
+    ap.add_argument("-n", "--nodes", type=int, default=10,
+                    help="Number of nodes in the network")
+    ap.add_argument("-s", "--seed", type=int, default=42,
+                    help="Number of nodes in the network")
+    # sp = ap.add_subparsers(dest="action")
+    # kad_parser = sp.add_parser("kad", help="Kademlia")
+    # chord_parser = sp.add_parser("chord", help="Chord")
+    ap.add_argument("-d", "--dht", choices=['kad', 'chord'], help="DHT to use")
+    return ap.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     # init random seed
-    RBG(seed=42)
+    RBG(seed=args.seed)
     env = simpy.Environment()
-    nodes = create_nodes(env, N_NODES)
+    nodes = create_nodes(env, args.nodes,
+                         # args.dht
+                         )
     simulator = Simulator(env, nodes)
     env.process(simulator.simulate())
-    env.run(until=MAX_TIME)
+    env.run(until=args.max_time)
 
 
 if __name__ == "__main__":
