@@ -1,6 +1,6 @@
-from kad.node import Node
-from kad.rbg import RandomBatchGenerator as RBG
-from kad.utils import *
+from common.node import Node
+from common.rbg import RandomBatchGenerator as RBG
+from common.utils import *
 
 
 class Simulator:
@@ -41,6 +41,6 @@ class Simulator:
                     packet,
                     tmp_event,
                     node.get_key_request,
-                    dict(key=key,forward=True)
+                    dict(key=key, forward=True)
                 )
             )
