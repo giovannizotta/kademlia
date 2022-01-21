@@ -1,24 +1,23 @@
+from __future__ import annotations
 from common.utils import *
 from common.node import Node
+from dataclasses import dataclass
 
 
+@dataclass
 class KadNode(Node):
-    def __init__(
-        self,
-        env: simpy.Environment,
-        _id: int,
-        serve_mean: float = 0.8,
-        timeout: int = 5,
-        neigh: Node = None,
-    ):
-        super().__init__(env, _id, serve_mean, timeout, neigh)
+    neigh: Optional[KadNode] = None
+
+    def __post_init__(self):
+        super().__post_init__()
 
     def on_find_node_request(
             self,
             packet: int,
             recv_req: simpy.Event,
             key: int,
-            forward: bool) -> SimpyProcess:
+            forward: bool
+    ) -> SimpyProcess:
         """Serve a request for the given packet"""
 
         self.log(f"serving packet {packet} -> request {key}")
@@ -69,3 +68,8 @@ class KadNode(Node):
     def _on_find_node_timeout(self) -> SimpyProcess:
         # do nothing at the moment
         raise StopIteration
+
+    @staticmethod
+    def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
+        # keys are log_world_size bits long
+        return key1 ^ key2

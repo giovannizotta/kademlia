@@ -1,27 +1,26 @@
 from __future__ import annotations
 from common.rbg import RandomBatchGenerator as RBG
 from common.utils import *
-from abc import ABC, abstractmethod
+from abc import ABC, abstractclassmethod, abstractmethod
+from dataclasses import dataclass
+import hashlib
+from bitstring import BitArray
 
 
+@dataclass
 class Node(ABC):
+    env: simpy.Environment
+    name: str
+    serve_mean: float = 0.8
+    timeout: int = 5
+    log_world_size: int = 10
+
     @abstractmethod
-    def __init__(
-        self,
-        env: simpy.Environment,
-        _id: int,
-        serve_mean: float = 0.8,
-        timeout: int = 5,
-        neigh: Node = None,
-    ):
-        self.env = env
-        self.id = _id
-        self.serve_mean = serve_mean
-        self.timeout = timeout
+    def __post_init__(self):
+        self.id = Node._compute_key(self.name, self.log_world_size)
         self.rbg = RBG()
-        self.neigh = neigh
-        self.in_queue = simpy.Resource(env, capacity=1)
-        self.dict = dict()
+        self.dict: Dict[int, Any] = dict()
+        self.in_queue = simpy.Resource(self.env, capacity=1)
 
     def log(self, msg: str) -> None:
         print(f"{self.env.now:5.1f} Node {self.id}: {msg}")
@@ -98,3 +97,17 @@ class Node(ABC):
     @abstractmethod
     def _on_find_node_timeout(self):
         pass
+
+    @staticmethod
+    def _compute_key(key_str: str, log_world_size: int) -> int:
+        digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
+        bindigest = BitArray(hex=digest).bin
+        subbin = bindigest[:log_world_size]
+        return BitArray(bin=subbin).uint
+
+    @abstractclassmethod
+    def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
+        pass
+
+    # to implement:
+    # join, leave, (crash ?), store_value
