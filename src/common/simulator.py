@@ -1,6 +1,7 @@
 from common.node import Node
 from common.rbg import RandomBatchGenerator as RBG
 from common.utils import *
+from common.packet import *
 
 
 class Simulator:
@@ -21,15 +22,28 @@ class Simulator:
     def get_random_node(self) -> Node:
         return self.rbg.get_choice(self.nodes)
 
+    def build_network(self) -> SimpyProcess:
+        for i in range(2, len(self.nodes)):
+            yield self.env.process(
+                self.nodes[i].join_network(self.nodes[0])
+            )
+
     def simulate(self) -> SimpyProcess:
-        packet = 0
+        yield from self.build_network()
         keys = tuple(range(1000))
+        updates = []
+        for node in self.nodes:
+            updates.append(self.env.process(node.update()))
+
+        yield simpy.AllOf(self.env, updates)
+        print(f"Updates are done for all nodes.")
+        
         while True:
             # generate request after random time
             t = self.get_arrival_time()
             yield self.env.timeout(t)
-            packet += 1
-            print("%5.1f Arrival of packet %d" % (self.env.now, packet))
+            packet = Packet()
+            print("%5.1f Arrival of packet %d" % (self.env.now, packet.id))
             # send it to a random node
             # node = self.get_random_node()
             node = self.nodes[0]

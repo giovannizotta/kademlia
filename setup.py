@@ -77,7 +77,8 @@ setup(
     # https://packaging.python.org/discussions/install-requires-vs-requirements/
     install_requires=[
         'simpy>=4',
-        'numpy>=1.22'
+        'numpy>=1.22',
+        'bitstring>=3.1.9'
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

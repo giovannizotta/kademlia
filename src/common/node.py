@@ -1,6 +1,7 @@
 from __future__ import annotations
 from common.rbg import RandomBatchGenerator as RBG
 from common.utils import *
+from common.packet import *
 from abc import ABC, abstractclassmethod, abstractmethod
 from dataclasses import dataclass, field
 import hashlib
@@ -12,7 +13,7 @@ class Node(ABC):
     env: simpy.Environment = field(repr=False)
     name: str
     serve_mean: float = field(repr=False, default=0.8)
-    timeout: int = field(repr=False, default=5.0)
+    timeout: int = field(repr=False, default=100.0)
     log_world_size: int = field(repr=False, default=10)
 
     id: int = field(init=False)
@@ -32,7 +33,7 @@ class Node(ABC):
 
     def wait_response(
         self,
-        packet: int,
+        packet: Packet,
         sent_req: simpy.Event,
         recv_req: simpy.Event,
         succ_callback: SimpyProcess,
@@ -50,7 +51,7 @@ class Node(ABC):
 
         if timeout.processed:
             # manage timeout instantly
-            self.log(f"TIMEOUT Request for packet {packet}")
+            self.log(f"TIMEOUT Request for packet {packet.id}")
             yield from timeout_callback(packet,
                                         sent_req,
                                         recv_req,
@@ -58,16 +59,16 @@ class Node(ABC):
         else:
             # wait queue
             self.log(
-                f"receive packet {packet} queue size {len(self.in_queue.queue)}")
+                f"receive packet {packet.id} queue size {len(self.in_queue.queue)}")
             with self.in_queue.request() as req:
                 yield req
                 # serve request
                 yield from succ_callback(packet, sent_req, recv_req, **succ_args)
-            self.log(f"Served packet {packet}, {len(self.in_queue.queue)}")
+            self.log(f"Served packet {packet.id}, {len(self.in_queue.queue)}")
 
     def wait_request(
         self,
-        packet: int,
+        packet: Packet,
         recv_req: simpy.Event,
         callback: SimpyProcess,
         callback_args: Dict
@@ -77,7 +78,7 @@ class Node(ABC):
         propagation_delay = self.env.timeout(transmission_time)
         yield propagation_delay
         self.log(
-            f"receive packet {packet} queue size {len(self.in_queue.queue)}")
+            f"receive packet {packet.id} queue size {len(self.in_queue.queue)}")
         with self.in_queue.request() as req:
             yield req
             yield from callback(packet, recv_req, **callback_args)
@@ -93,7 +94,7 @@ class Node(ABC):
     @abstractmethod
     def on_find_node_request(
         self,
-        packet: int,
+        packet: Packet,
         recv_req: simpy.Event,
         key: int
     ) -> SimpyProcess:
@@ -103,7 +104,7 @@ class Node(ABC):
     @abstractmethod
     def _on_find_node_response(
         self,
-        packet: int,
+        packet: Packet,
         recv_req: simpy.Event,
         from_node: Node
     ) -> SimpyProcess:
@@ -128,6 +129,13 @@ class Node(ABC):
     @abstractclassmethod
     def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
         pass
+
+    @abstractmethod
+    def update(self):
+        pass
+
+    def do_nothing(self, *args):
+        yield from []
 
     # to implement:
     # leave, (crash ?), store_value
