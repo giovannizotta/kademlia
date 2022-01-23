@@ -8,7 +8,7 @@ class Simulator:
         self,
         env: simpy.Environment,
         nodes: Iterable[Node],
-        mean_arrival: float = 0.50,
+        mean_arrival: float = 1.0,
     ):
         self.env = env
         self.nodes = tuple(nodes)
@@ -40,7 +40,8 @@ class Simulator:
                 node.wait_request(
                     packet,
                     tmp_event,
-                    node.on_find_node_request,
-                    dict(key=key, forward=True)
+                    node.find_node,
+                    dict(key=key)
                 )
             )
+

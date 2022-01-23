@@ -11,12 +11,15 @@ class KadNode(Node):
     def __post_init__(self):
         super().__post_init__()
 
+    def find_node(self, key: int) -> SimpyProcess:
+        return super().find_node(key)
+
     def on_find_node_request(
-            self,
-            packet: int,
-            recv_req: simpy.Event,
-            key: int,
-            forward: bool
+        self,
+        packet: int,
+        recv_req: simpy.Event,
+        key: int,
+        forward: bool
     ) -> SimpyProcess:
         """Serve a request for the given packet"""
 
@@ -54,6 +57,7 @@ class KadNode(Node):
     def _on_find_node_response(
         self,
         packet: int,
+        sent_req: simpy.Event,
         recv_req: simpy.Event,
         from_node: Node
     ) -> SimpyProcess:
@@ -68,6 +72,9 @@ class KadNode(Node):
     def _on_find_node_timeout(self) -> SimpyProcess:
         # do nothing at the moment
         raise StopIteration
+
+    def join_network(self, from_node: Node) -> SimpyProcess:
+        return super().join_network(from_node)
 
     @staticmethod
     def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:

@@ -2,24 +2,29 @@ from __future__ import annotations
 from common.rbg import RandomBatchGenerator as RBG
 from common.utils import *
 from abc import ABC, abstractclassmethod, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 from bitstring import BitArray
 
 
 @dataclass
 class Node(ABC):
-    env: simpy.Environment
+    env: simpy.Environment = field(repr=False)
     name: str
-    serve_mean: float = 0.8
-    timeout: int = 5
-    log_world_size: int = 10
+    serve_mean: float = field(repr=False, default=0.8)
+    timeout: int = field(repr=False, default=5.0)
+    log_world_size: int = field(repr=False, default=10)
+
+    id: int = field(init=False)
+    ht: Dict[int, Any] = field(init=False)
+    rbg: RBG = field(init=False, repr=False)
+    in_queue: simpy.Resource = field(init=False, repr=False)
 
     @abstractmethod
     def __post_init__(self):
         self.id = Node._compute_key(self.name, self.log_world_size)
+        self.ht = dict()
         self.rbg = RBG()
-        self.dict: Dict[int, Any] = dict()
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
     def log(self, msg: str) -> None:
@@ -57,7 +62,7 @@ class Node(ABC):
             with self.in_queue.request() as req:
                 yield req
                 # serve request
-                yield from succ_callback(packet, recv_req, **succ_args)
+                yield from succ_callback(packet, sent_req, recv_req, **succ_args)
             self.log(f"Served packet {packet}, {len(self.in_queue.queue)}")
 
     def wait_request(
@@ -78,11 +83,21 @@ class Node(ABC):
             yield from callback(packet, recv_req, **callback_args)
 
     @abstractmethod
+    def find_node(
+        self,
+        key: int
+    ) -> SimpyProcess:
+        """Iteratively find the node closest to the given key"""
+        pass
+
+    @abstractmethod
     def on_find_node_request(
-            self,
-            packet: int,
-            recv_req: simpy.Event,
-            key: int):
+        self,
+        packet: int,
+        recv_req: simpy.Event,
+        key: int
+    ) -> SimpyProcess:
+        """Answer with the node(s) closest to the key among the known ones"""
         pass
 
     @abstractmethod
@@ -95,7 +110,12 @@ class Node(ABC):
         pass
 
     @abstractmethod
-    def _on_find_node_timeout(self):
+    def _on_find_node_timeout(self) -> SimpyProcess:
+        pass
+
+    @abstractmethod
+    def join_network(self, from_node: Node) -> SimpyProcess:
+        """Send necessary requests to join the network"""
         pass
 
     @staticmethod
@@ -110,4 +130,4 @@ class Node(ABC):
         pass
 
     # to implement:
-    # join, leave, (crash ?), store_value
+    # leave, (crash ?), store_value

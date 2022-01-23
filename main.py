@@ -1,3 +1,4 @@
+from chord.node import ChordNode
 from common.utils import *
 from common.node import Node
 from kad.node import KadNode
@@ -11,13 +12,13 @@ MAX_TIME = 10.0
 
 def create_nodes(env: simpy.Environment, n_nodes: int) -> Sequence[Node]:
     """Instantiate the nodes for the simulation"""
-    nodes: List[KadNode] = list()
+    nodes: List[ChordNode] = list()
     for i in range(n_nodes):
-        nodes.append(KadNode(env, f"node_{i}"))
+        nodes.append(ChordNode(env, f"node_{i}"))
     # hardwire ring
-    nodes[0].neigh = nodes[1]
-    nodes[1].neigh = nodes[2]
-    nodes[2].neigh = nodes[0]
+    nodes[0].succ = nodes[1]
+    nodes[1].succ = nodes[2]
+    nodes[2].succ = nodes[0]
     return nodes
 
 
