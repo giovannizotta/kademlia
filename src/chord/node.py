@@ -1,6 +1,6 @@
 from __future__ import annotations
 from common.utils import *
-from common.node import Node
+from common.node import Node, packet_service
 from dataclasses import dataclass, field
 from common.packet import Packet
 
@@ -15,8 +15,6 @@ class ChordNode(Node):
         super().__post_init__()
         self.ft: List[ChordNode] = [self] * self.log_world_size
 
-    
-
     @property
     def succ(self) -> ChordNode:
         return self._succ
@@ -27,280 +25,194 @@ class ChordNode(Node):
         self.ft[1] = node
 
     @property
-    def pred(self) -> None:
+    def pred(self) -> ChordNode:
         return self._pred
 
     @pred.setter
     def pred(self, node: ChordNode) -> None:
         self._pred = node
 
-    def update(self) -> SimpyProcess:
-        for x in range(self.log_world_size):
-            key = (self.id * 2**x) % (2 ** self.log_world_size)
-            node = yield from self.find_node(key)
-            self.ft[x] = node
+    def _get_best_node(self, key: int) -> Tuple[ChordNode, bool]:
+        best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
+            node.id, key, self.log_world_size))
+        found = best_node is self
+        self.log(f"asked for best node for key {key}, it's {best_node if not found else 'me'}")
+        return best_node, found
 
-    def find_node(self, key):
-        packet = Packet()
-        sent_req = simpy.Event(self.env)
-        self.env.process(
-            self.wait_request(
-                packet,
-                sent_req,
-                self.find_node_request,
-                dict(key = key)
-            )
-        )
-        yield sent_req
-        return packet.data["best_node"]
+    @packet_service
+    def _get_best_node_and_forward(self, key: int, packet: Packet, ask_to: Optional[ChordNode] = None) -> Tuple[ChordNode, bool]:
+        self.log(f"looking for node with key {key}")
+        if ask_to is not None:
+            self.log(f"asking to {ask_to}")
+            best_node, found = ask_to, False
+        else:
+            best_node, found = self._get_best_node(key)
+            
+        if not found:
+            sent_req = self.send_req(best_node.on_find_node_request, packet)
+        else:
+            sent_req = None
+        return best_node, found, sent_req
 
-    def forward_find_node_request(
-        self,
-        packet: Packet,
-        key: int,
-        best_node: Node,
-        recv_req: simpy.Event
-    ) -> None:
-        """Forward FIND_NODE request to best_node"""
-        self.log(f"Forwarding {key} request to {best_node.id}")
+    
 
-        sent_req = simpy.Event(self.env)
-        # forward request...
-        self.env.process(
-            best_node.wait_request(
-                packet,
-                sent_req,
-                best_node.on_find_node_request,
-                dict(key=key)
-            )
-        )
-        # ... and wait for an answer
-        self.env.process(
-            self.wait_response(
-                packet,
-                sent_req,
-                recv_req,
-                self._on_find_node_response,
-                dict(from_node=best_node,
-                     key=key),
-                self._on_find_node_timeout,
-                dict()
-            )
-        )
+    @packet_service
+    def _check_best_node(self, packet: Packet, best_node: ChordNode, timeout: simpy.Event) -> Tuple[ChordNode, bool, simpy.Event]:
+        if timeout.processed:
+            self.log("TIMEOUT")
+            return self, True, timeout
+        tmp = packet.data["best_node"]
+        found = best_node is tmp
+        if not found:
+            self.log(f"received answer, forwarding to {best_node}")
+            sent_req = self.send_req(best_node.on_find_node_request, packet)
+        else:
+            self.log(f"received answer, found! It's {best_node}")
+            sent_req = None
+        return tmp, found, sent_req
 
     def find_node_request(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
-        key: int
-    ) -> SimpyProcess:
+        recv_req: simpy.Event
+    ) -> SimpyProcess[ChordNode]:
+        key = packet.data["key"]
+        best_node = yield from self.find_node(key)
+        packet.data["best_node"] = best_node
+        self.send_resp(recv_req)
 
-        self.log(f"Looking for node with {key}")
-
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
-
-        best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
-            node.id, key, self.log_world_size))
-
-        if best_node is self:
-            self.log(f"Found {key}, it's me")
-            packet.data["best_node"] = self
-            recv_req.succeed()
-        else:
-            self.forward_find_node_request(packet, key, best_node, recv_req)
-
+    @packet_service
     def on_find_node_request(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
-        key: int
+        recv_req: simpy.Event
     ) -> SimpyProcess:
-
-        best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
-            node.id, key, self.log_world_size))
-
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
-
+        key = packet.data["key"]
+        best_node, _ = self._get_best_node(key)
         packet.data["best_node"] = best_node
-        recv_req.succeed()
+        self.send_resp(recv_req)
 
-    def _on_find_node_response(
+    def find_node(
         self,
-        packet: Packet,
-        sent_req: simpy.Event,
-        recv_req: simpy.Event,
-        from_node: Node,
-        key: int
-    ) -> SimpyProcess:
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
-        best_node = packet.data["best_node"]
-        if best_node is from_node:
-            self.log(f"Found {key}, it's {best_node.id}")
-            recv_req.succeed()
-        else:
-            self.log(f"Forwarding {key} to {best_node.id}")
-            self.forward_find_node_request(packet, key, best_node, recv_req)
+        key: int,
+        ask_to: Optional[ChordNode] = None
+    ) -> SimpyProcess[ChordNode]:
+        self.log(f"start looking for node holding {key}")
+        packet = Packet(data=dict(key=key))
+        best_node, found, sent_req = yield from self._get_best_node_and_forward(key, packet, ask_to)
+        while not found:
+            timeout = yield from self.wait_resp(sent_req)
+            best_node, found, sent_req = yield from self._check_best_node(packet, best_node, timeout)
 
-    def _on_find_node_timeout(self):
-        return super()._on_find_node_timeout()
+        return best_node
 
-
+    @packet_service
     def get_successor(
         self,
         packet: Packet,
         recv_req: simpy.Event,
     ) -> SimpyProcess:
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
+        self.log("asked what is my successor")
         packet.data["succ"] = self.succ
-        recv_req.succeed()
+        self.send_resp(recv_req)
 
+    @packet_service
     def set_successor(
         self,
         packet: Packet,
         recv_req: simpy.Event,
     ) -> SimpyProcess:
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
         self.succ = packet.data["succ"]
-        recv_req.succeed()
+        self.log(f"asked to change my successor to {self.succ}")
+        self.send_resp(recv_req)
 
+    @packet_service
     def get_predecessor(
         self,
         packet: Packet,
         recv_req: simpy.Event,
     ) -> SimpyProcess:
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
+        self.log("asked what is my predecessor")
         packet.data["pred"] = self.pred
-        recv_req.succeed()
+        self.send_resp(recv_req)
 
+    @packet_service
     def set_predecessor(
         self,
         packet: Packet,
         recv_req: simpy.Event,
     ) -> SimpyProcess:
-        service_time = self.rbg.get_exponential(self.serve_mean)
-        yield self.env.timeout(service_time)
         self.pred = packet.data["pred"]
-        recv_req.succeed()
+        self.log(f"asked to change my predecessor to {self.pred}")
+        self.send_resp(recv_req)
 
-    def ask_successor(self, to: Node) -> SimpyProcess[Node]:
-        packet = Packet()
-        sent_req = simpy.Event(self.env)
-        recv_req = simpy.Event(self.env)
-        self.env.process(
-            to.wait_request(
-                packet,
-                sent_req,
-                to.get_successor,
-                dict()
-            )
-        )
-        # ... and wait for an answer
-        yield self.env.process(
-            self.wait_response(
-                packet,
-                sent_req,
-                recv_req,
-                self.do_nothing,
-                dict(),
-                self._on_find_node_timeout,
-                dict()
-            )
-        )
-
+    @packet_service
+    def _read_succ_resp(self, packet: Packet, timeout: simpy.Event) -> ChordNode:
+        if timeout.processed:
+            self.log("TIMEOUT")
+            return None
+        self.log(f"got answer for node's succ, it's {packet.data['succ']}")
         return packet.data["succ"]
 
-    def join_network(self, to: Node) -> SimpyProcess:
-        packet = Packet()
-        sent_req = simpy.Event(self.env)
-        recv_req = simpy.Event(self.env)
-        # forward request...
-        self.env.process(
-            to.wait_request(
-                packet,
-                sent_req,
-                to.find_node_request,
-                dict(key=self.id)
-            )
-        )
-        # ... and wait for an answer
-        yield self.env.process(
-            self.wait_response(
-                packet,
-                sent_req,
-                recv_req,
-                self.do_nothing,
-                dict(),
-                self._on_find_node_timeout,
-                dict()
-            )
-        )
-        node = packet.data["best_node"]
-        succ = yield from self.ask_successor(node)
+    @packet_service
+    def ask_successor(self, to: ChordNode, packet:Packet) -> SimpyProcess[ChordNode]:
+        self.log(f"asking {to} for it's successor")
+        sent_req = self.send_req(to.get_successor, packet)
+        return sent_req
 
-        # ask node to set successor as me
-        sent_req = simpy.Event(self.env)
-        recv_req = simpy.Event(self.env)
-        packet.data["succ"] = self 
-        self.env.process(
-            node.wait_request(
-                packet,
-                sent_req,
-                node.set_successor,
-                dict()
-            )
-        )
-        # ... and wait for an answer
-        yield self.env.process(
-            self.wait_response(
-                packet,
-                sent_req,
-                recv_req,
-                self.do_nothing,
-                dict(),
-                self._on_find_node_timeout,
-                dict()
-            )
-        )
+    @packet_service
+    def _ask_set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> None:
+        self.log(f"asking {pred} to set me as its successor")
+        self.log(f"asking {succ} to set me as its predecessor")
+        packet_pred = Packet(data=dict(succ=self))
+        packet_succ = Packet(data=dict(pred=self))
+        sent_req_pred = self.send_req(pred.set_successor, packet_pred)
+        sent_req_succ = self.send_req(succ.set_predecessor, packet_succ)
+        return sent_req_pred, sent_req_succ
 
-        # ask succ to set predecessor as me
-        sent_req = simpy.Event(self.env)
-        recv_req = simpy.Event(self.env)
-        packet.data["pred"] = self
-        self.env.process(
-            succ.wait_request(
-                packet,
-                sent_req,
-                succ.set_predecessor,
-                dict()
-            )
-        )
-        # ... and wait for an answer
-        yield self.env.process(
-            self.wait_response(
-                packet,
-                sent_req,
-                recv_req,
-                self.do_nothing,
-                dict(),
-                self._on_find_node_timeout,
-                dict()
-            )
-        )
-
-        #I do my rewiring
-        self.pred = node
+    @packet_service
+    def _set_pred_succ(self, pred: ChordNode, succ: ChordNode, timeout: simpy.Event) -> None:
+        if timeout.processed:
+            self.log("TIMEOUT")
+            return
+        self.log(f"setting my succ to {succ}")
+        self.log(f"setting my pred to {pred}")
+        self.pred = pred
         self.succ = succ
+
+    def join_network(self, to: Node) -> SimpyProcess:
+        self.log(f"trying to join the network from {to}")
+        # ask to to find_node
+        node = yield from self.find_node(self.id, ask_to=to)
+        # ask node its successor
+        packet = Packet()
+        sent_req = yield from self.ask_successor(node, packet)
+        # wait for a response (or timeout)
+        timeout = yield from self.wait_resp(sent_req)
+        # serve response
+        node_succ = yield from self._read_succ_resp(packet, timeout)
+
+        # ask them to put me in the ring
+        sent_req_pred, sent_req_succ = yield from self._ask_set_pred_succ(node, node_succ)
+        # wait for both answers
+        timeout = yield from self.wait_resp(sent_req_pred & sent_req_succ)
+        # I do my rewiring
+        yield from self._set_pred_succ(node, node_succ, timeout)
 
     @staticmethod
     def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
         """Compute the distance from key1 to key 2"""
         return (key2 - key1) % (2**log_world_size - 1)
+
+    @packet_service
+    def _update_ft(self, pos, node) -> None:
+        self.ft[pos] = node
+
+    def update(self) -> SimpyProcess:
+        for x in range(self.log_world_size):
+            key = (self.id * 2**x) % (2 ** self.log_world_size)
+            node = yield from self.find_node(key)
+            yield from self._update_ft(x, node)
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?

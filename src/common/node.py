@@ -7,6 +7,16 @@ from dataclasses import dataclass, field
 import hashlib
 from bitstring import BitArray
 
+def packet_service(operation: Callable[..., T]) -> SimpyProcess[T]:
+    """Wait for the Node's resource, perform the operation and wait a random service time."""
+    def wrapper(self, *args):
+        with self.in_queue.request() as res:
+            yield res
+            ans = operation(self, *args)
+            service_time = self.rbg.get_exponential(self.serve_mean)
+            yield self.env.timeout(service_time)
+        return ans
+    return wrapper
 
 @dataclass
 class Node(ABC):
@@ -29,93 +39,65 @@ class Node(ABC):
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
     def log(self, msg: str) -> None:
-        print(f"{self.env.now:5.1f} Node {self.id}: {msg}")
+        print(f"{self.env.now:5.1f} {self.name:8s}(id {self.id:3d}): {msg}")
 
-    def wait_response(
-        self,
-        packet: Packet,
-        sent_req: simpy.Event,
-        recv_req: simpy.Event,
-        succ_callback: SimpyProcess,
-        succ_args: Dict,
-        timeout_callback: SimpyProcess,
-        timeout_args: Dict
-    ) -> SimpyProcess:
-        # wait for response or timeout
+    def _transmit(self) -> SimpyProcess:
         transmission_time = self.rbg.get_exponential(self.serve_mean)
-        propagation_delay = self.env.timeout(transmission_time)
+        transmission_delay = self.env.timeout(transmission_time)
+        yield transmission_delay
+
+    def _req(self, process, packet: Packet, sent_req: simpy.Event) -> SimpyProcess:
+        yield from self._transmit()
+        yield self.env.process(process(packet, sent_req)) 
+
+    def send_req(self, answer_method: SimpyProcess, packet: Packet) -> SimpyProcess[simpy.Event]:
+        self.log(f"sending packet {packet}...")
+        sent_req = self.env.event()
+        # transmission time
+        self.env.process(self._req(answer_method, packet, sent_req))
+        return sent_req
+
+    def wait_resp(self, sent_req: simpy.Event) -> SimpyProcess[simpy.Event]:
         timeout = self.env.timeout(self.timeout)
-        wait_resp = sent_req & propagation_delay
-        wait_event = timeout | wait_resp
+        wait_event = timeout | sent_req
         yield wait_event
+        self.log(f"received response")
+        return timeout
 
-        if timeout.processed:
-            # manage timeout instantly
-            self.log(f"TIMEOUT Request for packet {packet.id}")
-            yield from timeout_callback(packet,
-                                        sent_req,
-                                        recv_req,
-                                        **timeout_args)
-        else:
-            # wait queue
-            self.log(
-                f"receive packet {packet.id} queue size {len(self.in_queue.queue)}")
-            with self.in_queue.request() as req:
-                yield req
-                # serve request
-                yield from succ_callback(packet, sent_req, recv_req, **succ_args)
-            self.log(f"Served packet {packet.id}, {len(self.in_queue.queue)}")
+    def _resp(self, recv_req: simpy.Event)-> SimpyProcess:
+        yield from self._transmit()
+        recv_req.succeed()
+        
+    def send_resp(self, recv_req: simpy.Event) -> SimpyProcess:
+        self.log(f"sending response...")
+        self.env.process(self._resp(recv_req))
 
-    def wait_request(
-        self,
-        packet: Packet,
-        recv_req: simpy.Event,
-        callback: SimpyProcess,
-        callback_args: Dict
-    ) -> SimpyProcess:
-        """Serve a request for the given packet"""
-        transmission_time = self.rbg.get_exponential(self.serve_mean)
-        propagation_delay = self.env.timeout(transmission_time)
-        yield propagation_delay
-        self.log(
-            f"receive packet {packet.id} queue size {len(self.in_queue.queue)}")
-        with self.in_queue.request() as req:
-            yield req
-            yield from callback(packet, recv_req, **callback_args)
 
     @abstractmethod
-    def find_node(
+    def find_node(self, key: int) -> Node:
+        """Iteratively find the closest node(s) to the given key"""
+        pass
+
+    @abstractmethod
+    def find_node_request(
         self,
-        key: int
-    ) -> SimpyProcess:
-        """Iteratively find the node closest to the given key"""
+        packet: Packet,
+        recv_req: simpy.Event
+    ) -> SimpyProcess[Node]:
+        """Answer to a request for the node holding a given key"""
         pass
 
     @abstractmethod
     def on_find_node_request(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
-        key: int
+        recv_req: simpy.Event
     ) -> SimpyProcess:
         """Answer with the node(s) closest to the key among the known ones"""
         pass
 
     @abstractmethod
-    def _on_find_node_response(
-        self,
-        packet: Packet,
-        recv_req: simpy.Event,
-        from_node: Node
-    ) -> SimpyProcess:
-        pass
-
-    @abstractmethod
-    def _on_find_node_timeout(self) -> SimpyProcess:
-        pass
-
-    @abstractmethod
-    def join_network(self, from_node: Node) -> SimpyProcess:
+    def join_network(self, to: Node) -> SimpyProcess:
         """Send necessary requests to join the network"""
         pass
 
@@ -132,10 +114,8 @@ class Node(ABC):
 
     @abstractmethod
     def update(self):
+        """Update finger table"""
         pass
-
-    def do_nothing(self, *args):
-        yield from []
 
     # to implement:
     # leave, (crash ?), store_value

@@ -27,6 +27,7 @@ class Simulator:
             yield self.env.process(
                 self.nodes[i].join_network(self.nodes[0])
             )
+        print("All nodes joined")
 
     def simulate(self) -> SimpyProcess:
         yield from self.build_network()
@@ -42,20 +43,12 @@ class Simulator:
             # generate request after random time
             t = self.get_arrival_time()
             yield self.env.timeout(t)
-            packet = Packet()
+            key = self.rbg.get_choice(keys)
+            packet = Packet(data=dict(key=key))
             print("%5.1f Arrival of packet %d" % (self.env.now, packet.id))
             # send it to a random node
             # node = self.get_random_node()
             node = self.nodes[0]
-            # make it serve the request
-            tmp_event = simpy.Event(self.env)
-            key = self.rbg.get_choice(keys)
-            self.env.process(
-                node.wait_request(
-                    packet,
-                    tmp_event,
-                    node.find_node,
-                    dict(key=key)
-                )
-            )
+            # make the node send a request to itself
+            _ = node.send_req(node.find_node_request, packet)
 
