@@ -5,17 +5,18 @@ from kad.node import KadNode
 from common.simulator import Simulator
 from common.rbg import RandomBatchGenerator as RBG
 from argparse import ArgumentParser, Namespace
+import logging
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
-
+WORLD_SIZE = 160
 
 
 def create_nodes(env: simpy.Environment, join: int) -> Sequence[Node]:
     """Instantiate the nodes for the simulation"""
     nodes: List[ChordNode] = list()
     for i in range(join):
-        nodes.append(ChordNode(env, f"node_{i}"))
+        nodes.append(ChordNode(env, f"node_{i}", log_world_size=WORLD_SIZE))
     # hardwire two nodes
     nodes[0].succ = nodes[1]
     nodes[1].succ = nodes[0]
@@ -32,6 +33,8 @@ def parse_args() -> Namespace:
                     help="Number of nodes that will join the network at the beginning")
     ap.add_argument("-s", "--seed", type=int, default=42,
                     help="Random seed")
+    ap.add_argument("-l", "--loglevel", type=str, default=logging.INFO,
+                    help="Logging level")
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
     # chord_parser = sp.add_parser("chord", help="Chord")
@@ -41,6 +44,13 @@ def parse_args() -> Namespace:
 
 def main() -> None:
     args = parse_args()
+    logger = logging.getLogger("logger")
+    logger.setLevel(args.loglevel)
+    fh = logging.FileHandler("logs.log", mode='w')
+    fh.setLevel(args.loglevel)
+    formatter = logging.Formatter('%(levelname)s:%(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
     # init random seed
     RBG(seed=args.seed)
     env = simpy.Environment()
@@ -48,7 +58,6 @@ def main() -> None:
     simulator = Simulator(env, nodes)
     env.process(simulator.simulate())
     env.run(until=args.max_time)
-
 
 if __name__ == "__main__":
     main()

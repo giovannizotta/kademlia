@@ -22,7 +22,7 @@ class ChordNode(Node):
     @succ.setter
     def succ(self, node: ChordNode) -> None:
         self._succ = node
-        self.ft[1] = node
+        self.ft[-1] = node
 
     @property
     def pred(self) -> ChordNode:
@@ -33,6 +33,14 @@ class ChordNode(Node):
         self._pred = node
 
     def _get_best_node(self, key: int) -> Tuple[ChordNode, bool]:
+        """Get the best node for a given key from the finger table
+
+        Args:
+            key (int): the key to be searched
+
+        Returns:
+            Tuple[ChordNode, bool]: best_node, true if the node is self
+        """ 
         best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
             node.id, key, self.log_world_size))
         found = best_node is self
@@ -41,6 +49,16 @@ class ChordNode(Node):
 
     @packet_service
     def _get_best_node_and_forward(self, key: int, packet: Packet, ask_to: Optional[ChordNode] = None) -> Tuple[ChordNode, bool]:
+        """Iteratively search for the best node for a given key. 
+
+        Args:
+            key (int): the key to be searched
+            packet (Packet): the packet to be sent
+            ask_to (Optional[ChordNode], optional): Optional hint of a node to ask to. Defaults to None.
+
+        Returns:
+            Tuple[ChordNode, bool]: best_node, found or not, sent_request 
+        """
         self.log(f"looking for node with key {key}")
         if ask_to is not None:
             self.log(f"asking to {ask_to}")
@@ -63,19 +81,26 @@ class ChordNode(Node):
             return self, True, timeout
         tmp = packet.data["best_node"]
         found = best_node is tmp
+        best_node = tmp
         if not found:
-            self.log(f"received answer, forwarding to {best_node}")
+            self.log(f"received answer, packet: {packet} -> forwarding to {best_node}")
             sent_req = self.send_req(best_node.on_find_node_request, packet)
         else:
-            self.log(f"received answer, found! It's {best_node}")
+            self.log(f"received answer, packet: {packet} -> found! It's {best_node}")
             sent_req = None
-        return tmp, found, sent_req
+        return best_node, found, sent_req
 
     def find_node_request(
         self,
         packet: Packet,
         recv_req: simpy.Event
     ) -> SimpyProcess[ChordNode]:
+        """Serve a find_node request for the given key.
+
+        Args:
+            packet (Packet): the packet 
+            recv_req (simpy.Event): the event to be triggered by the successful response    
+        """
         key = packet.data["key"]
         best_node = yield from self.find_node(key)
         packet.data["best_node"] = best_node
@@ -87,6 +112,12 @@ class ChordNode(Node):
         packet: Packet,
         recv_req: simpy.Event
     ) -> SimpyProcess:
+        """Get the best node in the finger table of the node for the given key.
+
+        Args:
+            packet (Packet): the packet
+            recv_req (simpy.Event): the event to be triggered by the successful response
+        """
         key = packet.data["key"]
         best_node, _ = self._get_best_node(key)
         packet.data["best_node"] = best_node
@@ -97,6 +128,12 @@ class ChordNode(Node):
         key: int,
         ask_to: Optional[ChordNode] = None
     ) -> SimpyProcess[ChordNode]:
+        """Execute the iterative search to find the best node for the given key.
+
+        Args:
+            key (int): the key to be searched for
+            ask_to (Optional[ChordNode], optional): first node to contact. Defaults to None.
+        """
         self.log(f"start looking for node holding {key}")
         packet = Packet(data=dict(key=key))
         best_node, found, sent_req = yield from self._get_best_node_and_forward(key, packet, ask_to)
@@ -112,7 +149,7 @@ class ChordNode(Node):
         packet: Packet,
         recv_req: simpy.Event,
     ) -> SimpyProcess:
-        self.log("asked what is my successor")
+        self.log("asked what my successor is")
         packet.data["succ"] = self.succ
         self.send_resp(recv_req)
 
@@ -202,7 +239,7 @@ class ChordNode(Node):
     @staticmethod
     def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
         """Compute the distance from key1 to key 2"""
-        return (key2 - key1) % (2**log_world_size - 1)
+        return (key2 - key1) % (2**log_world_size)
 
     @packet_service
     def _update_ft(self, pos, node) -> None:
@@ -210,7 +247,7 @@ class ChordNode(Node):
 
     def update(self) -> SimpyProcess:
         for x in range(self.log_world_size):
-            key = (self.id * 2**x) % (2 ** self.log_world_size)
+            key = (self.id + 2**x) % (2 ** self.log_world_size)
             node = yield from self.find_node(key)
             yield from self._update_ft(x, node)
 

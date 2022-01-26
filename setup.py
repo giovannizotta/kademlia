@@ -78,7 +78,9 @@ setup(
     install_requires=[
         'simpy>=4',
         'numpy>=1.22',
-        'bitstring>=3.1.9'
+        'bitstring>=3.1.9',
+        'networkx>=2.6.3',
+        'matplotlib>=3.5.1'
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
