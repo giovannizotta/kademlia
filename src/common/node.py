@@ -154,6 +154,10 @@ class Node(ABC):
     def update(self):
         """Update finger table"""
         pass
-
+    
+    @abstractmethod
+    def find_value(self, key: int):
+        """Get value associated to a given key"""
+        pass
     # to implement:
     # leave, (crash ?), store_value

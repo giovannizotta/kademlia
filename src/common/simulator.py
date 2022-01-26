@@ -21,7 +21,7 @@ class Simulator:
         self.logger = logging.getLogger("logger")
         
     def log(self, msg: str, level: int = logging.DEBUG) -> None:
-        self.logger.log(level, f" {self.env.now:5.1f} SIMULATOR: {msg}")
+        self.logger.log(level, f"{self.env.now:6.1f} SIMULATOR: {msg}")
 
     def get_arrival_time(self) -> float:
         return self.rbg.get_exponential(self.mean_arrival)

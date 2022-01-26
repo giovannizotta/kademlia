@@ -48,7 +48,7 @@ def main() -> None:
     logger.setLevel(args.loglevel)
     fh = logging.FileHandler("logs.log", mode='w')
     fh.setLevel(args.loglevel)
-    formatter = logging.Formatter('%(levelname)s:%(message)s')
+    formatter = logging.Formatter('%(levelname)10s: %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     # init random seed

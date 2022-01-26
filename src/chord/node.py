@@ -1,7 +1,7 @@
 from __future__ import annotations
 from common.utils import *
 from common.node import Node, packet_service
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from common.packet import Packet
 
 
@@ -250,6 +250,59 @@ class ChordNode(Node):
             key = (self.id + 2**x) % (2 ** self.log_world_size)
             node = yield from self.find_node(key)
             yield from self._update_ft(x, node)
+        
+    @packet_service    
+    def get_value(self, packet: Packet, recv_req: simpy.Event):
+        """Get value associated to a given key in the node's hash table"""
+        key = packet.data["key"]
+        packet.data["value"] = self.ht.get(key)
+        self.send_resp(recv_req)
+        
+    @packet_service
+    def ask_value(self, to: ChordNode, packet:Packet) -> SimpyProcess[ChordNode]:
+        self.log(f"asking {to} for the key {packet.data['key']}")
+        sent_req = self.send_req(to.get_value, packet)
+        return sent_req
+    
+    @packet_service
+    def reply_find_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet):
+        if not timeout.processed:
+            recv_req.succeed()
+    
+    def find_value(self, packet: Packet, recv_req: simpy.Event):
+        """Find the value associated to a given key"""
+        node = yield from self.find_node(packet.data["key"])
+        sent_req = self.ask_value(node, packet)
+        timeout = yield from self.wait_resp(sent_req)
+        
+        yield from self.reply_find_value(timeout, recv_req, packet)
+        
+    @packet_service    
+    def set_value(self, packet: Packet, recv_req: simpy.Event):
+        """Set the value to be associated to a given key in the node's hash table"""
+        key = packet.data["key"]
+        self.ht[key] = packet.data["value"]
+        self.send_resp(recv_req)
+        
+    @packet_service
+    def ask_set_value(self, to: ChordNode, packet:Packet) -> SimpyProcess[ChordNode]:
+        self.log(f"asking {to} to set the value {packet.data['value']} for the key {packet.data['key']}")
+        sent_req = self.send_req(to.set_value, packet)
+        return sent_req
+    
+    @packet_service
+    def reply_store_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet):
+        if not timeout.processed:
+            recv_req.succeed()
+    
+    def store_value(self, packet: Packet, recv_req: simpy.Event):
+        """Store the value to be associated to a given key"""
+        node = yield from self.find_node(packet.data["key"])
+        sent_req = self.ask_set_value(node, packet)
+        timeout = yield from self.wait_resp(sent_req)
+        
+        yield from self.reply_store_value(timeout, recv_req, packet)
+        
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?
