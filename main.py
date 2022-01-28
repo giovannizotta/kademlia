@@ -3,20 +3,21 @@ from common.utils import *
 from common.node import Node
 from kad.node import KadNode
 from common.simulator import Simulator
-from common.rbg import RandomBatchGenerator as RBG
+from common.utils import RandomBatchGenerator as RBG
 from argparse import ArgumentParser, Namespace
 import logging
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
 WORLD_SIZE = 160
+N_KEYS = 10**4
 
 
 def create_nodes(env: simpy.Environment, join: int) -> Sequence[Node]:
     """Instantiate the nodes for the simulation"""
     nodes: List[ChordNode] = list()
     for i in range(join):
-        nodes.append(ChordNode(env, f"node_{i}", log_world_size=WORLD_SIZE))
+        nodes.append(ChordNode(env, f"node_{i:05d}", log_world_size=WORLD_SIZE))
     # hardwire two nodes
     nodes[0].succ = nodes[1]
     nodes[1].succ = nodes[0]
@@ -27,7 +28,7 @@ def create_nodes(env: simpy.Environment, join: int) -> Sequence[Node]:
 
 def parse_args() -> Namespace:
     ap = ArgumentParser("Kademlia and chord simulator")
-    ap.add_argument("-t", "--max-time", type=float, default=10.0,
+    ap.add_argument("-t", "--max-time", type=float, default=1000.0,
                     help="Maximum time to run the simulation")
     ap.add_argument("-n", "--nodes", type=int, default=NODES_TO_JOIN,
                     help="Number of nodes that will join the network at the beginning")
@@ -55,7 +56,8 @@ def main() -> None:
     RBG(seed=args.seed)
     env = simpy.Environment()
     nodes = create_nodes(env, args.nodes)
-    simulator = Simulator(env, nodes)
+    keys = map(lambda x : f"key_{x}", range(N_KEYS))
+    simulator = Simulator(env, "Simulator", nodes, keys)
     env.process(simulator.simulate())
     env.run(until=args.max_time)
 

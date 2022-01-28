@@ -1,52 +1,38 @@
 from __future__ import annotations
-from common.rbg import RandomBatchGenerator as RBG
 from common.utils import *
 from common.packet import *
-from abc import ABC, abstractclassmethod, abstractmethod
+from abc import abstractclassmethod, abstractmethod
 from dataclasses import dataclass, field
 import hashlib, logging
 from bitstring import BitArray
 
 def packet_service(operation: Callable[..., T]) -> SimpyProcess[T]:
     """Wait for the Node's resource, perform the operation and wait a random service time."""
-    def wrapper(self, *args):
+    def wrapper(self: DHTNode, *args):
         with self.in_queue.request() as res:
             yield res
             ans = operation(self, *args)
-            service_time = self.rbg.get_exponential(self.serve_mean)
+            service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
         return ans
     return wrapper
 
 @dataclass
-class Node(ABC):
-    env: simpy.Environment = field(repr=False)
-    name: str
-    serve_mean: float = field(repr=False, default=0.8)
+class Node(Loggable):
     timeout: int = field(repr=False, default=100.0)
     log_world_size: int = field(repr=False, default=10)
+    mean_transmission_delay: float = field(repr=False, default=0.8)
     
-
     id: int = field(init=False)
-    ht: Dict[int, Any] = field(init=False)
-    rbg: RBG = field(init=False, repr=False)
-    in_queue: simpy.Resource = field(init=False, repr=False)
 
     @abstractmethod
     def __post_init__(self):
-        self.id = Node._compute_key(self.name, self.log_world_size)
-        self.ht = dict()
-        self.rbg = RBG()
-        self.in_queue = simpy.Resource(self.env, capacity=1)
-        self.logger = logging.getLogger("logger")
-        
-
-    def log(self, msg: str, level: int = logging.DEBUG) -> None:
-        self.logger.log(level, f"{self.env.now:5.1f} {self.name:8s}(id {self.id:3d}): {msg}")
+        super().__post_init__()
+        self.id = Node._compute_key(self.name, self.log_world_size)        
 
     def _transmit(self) -> SimpyProcess:
         """Wait for the transmission delay of a message"""
-        transmission_time = self.rbg.get_exponential(self.serve_mean)
+        transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
         transmission_delay = self.env.timeout(transmission_time)
         yield transmission_delay
 
@@ -61,7 +47,7 @@ class Node(ABC):
         yield from self._transmit()
         yield self.env.process(process(packet, sent_req)) 
 
-    def send_req(self, answer_method: SimpyProcess, packet: Packet) -> SimpyProcess[simpy.Event]:
+    def send_req(self, answer_method: SimpyProcess, packet: Packet) -> simpy.Event:
         """Send a packet and bind it to a callback
 
         Args:
@@ -101,7 +87,7 @@ class Node(ABC):
         yield from self._transmit()
         recv_req.succeed()
         
-    def send_resp(self, recv_req: simpy.Event) -> SimpyProcess:
+    def send_resp(self, recv_req: simpy.Event) -> None:
         """Send the response to an event
 
         Args:
@@ -110,9 +96,28 @@ class Node(ABC):
         self.log(f"sending response...")
         self.env.process(self._resp(recv_req))
 
+    @staticmethod
+    def _compute_key(key_str: str, log_world_size: int) -> int:
+        digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
+        bindigest = BitArray(hex=digest).bin
+        subbin = bindigest[:log_world_size]
+        return BitArray(bin=subbin).uint
+
+@dataclass
+class DHTNode(Node):
+    mean_service_time: float = field(repr=False, default=0.8)
+
+    ht: Dict[int, Any] = field(init=False)
+    in_queue: simpy.Resource = field(init=False, repr=False)
 
     @abstractmethod
-    def find_node(self, key: int) -> Node:
+    def __post_init__(self):
+        super().__post_init__()
+        self.ht = dict()
+        self.in_queue = simpy.Resource(self.env, capacity=1)
+
+    @abstractmethod
+    def find_node(self, key: int) -> DHTNode:
         """Iteratively find the closest node(s) to the given key"""
         pass
 
@@ -121,7 +126,7 @@ class Node(ABC):
         self,
         packet: Packet,
         recv_req: simpy.Event
-    ) -> SimpyProcess[Node]:
+    ) -> SimpyProcess[DHTNode]:
         """Answer to a request for the node holding a given key"""
         pass
 
@@ -135,16 +140,9 @@ class Node(ABC):
         pass
 
     @abstractmethod
-    def join_network(self, to: Node) -> SimpyProcess:
+    def join_network(self, to: DHTNode) -> SimpyProcess:
         """Send necessary requests to join the network"""
         pass
-
-    @staticmethod
-    def _compute_key(key_str: str, log_world_size: int) -> int:
-        digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
-        bindigest = BitArray(hex=digest).bin
-        subbin = bindigest[:log_world_size]
-        return BitArray(bin=subbin).uint
 
     @abstractclassmethod
     def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
@@ -156,8 +154,14 @@ class Node(ABC):
         pass
     
     @abstractmethod
-    def find_value(self, key: int):
+    def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Get value associated to a given key"""
         pass
+
+    @abstractmethod
+    def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
+        """Store the value to be associated to a given key"""
+        pass
+
     # to implement:
     # leave, (crash ?), store_value

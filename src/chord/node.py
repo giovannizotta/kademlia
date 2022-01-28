@@ -1,12 +1,12 @@
 from __future__ import annotations
 from common.utils import *
-from common.node import Node, packet_service
+from common.node import DHTNode, packet_service
 from dataclasses import dataclass, field, replace
 from common.packet import Packet
 
 
 @dataclass
-class ChordNode(Node):
+class ChordNode(DHTNode):
     _pred: Optional[ChordNode] = field(init=False, repr=False)
     _succ: Optional[ChordNode] = field(init=False, repr=False)
     ft: List[ChordNode] = field(init=False, repr=False)
@@ -101,7 +101,7 @@ class ChordNode(Node):
             packet (Packet): the packet 
             recv_req (simpy.Event): the event to be triggered by the successful response    
         """
-        key = packet.data["key"]
+        key = self._compute_key(packet.data["key"], self.log_world_size)
         best_node = yield from self.find_node(key)
         packet.data["best_node"] = best_node
         self.send_resp(recv_req)
@@ -217,7 +217,7 @@ class ChordNode(Node):
         self.pred = pred
         self.succ = succ
 
-    def join_network(self, to: Node) -> SimpyProcess:
+    def join_network(self, to: ChordNode) -> SimpyProcess:
         self.log(f"trying to join the network from {to}")
         # ask to to find_node
         node = yield from self.find_node(self.id, ask_to=to)
@@ -269,10 +269,11 @@ class ChordNode(Node):
         if not timeout.processed:
             recv_req.succeed()
     
-    def find_value(self, packet: Packet, recv_req: simpy.Event):
+    def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Find the value associated to a given key"""
-        node = yield from self.find_node(packet.data["key"])
-        sent_req = self.ask_value(node, packet)
+        key = packet.data["key"]
+        node = yield from self.find_node(key)
+        sent_req = yield from self.ask_value(node, packet)
         timeout = yield from self.wait_resp(sent_req)
         
         yield from self.reply_find_value(timeout, recv_req, packet)
@@ -295,10 +296,11 @@ class ChordNode(Node):
         if not timeout.processed:
             recv_req.succeed()
     
-    def store_value(self, packet: Packet, recv_req: simpy.Event):
+    def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Store the value to be associated to a given key"""
-        node = yield from self.find_node(packet.data["key"])
-        sent_req = self.ask_set_value(node, packet)
+        key = packet.data["key"]
+        node = yield from self.find_node(key)
+        sent_req = yield from self.ask_set_value(node, packet)
         timeout = yield from self.wait_resp(sent_req)
         
         yield from self.reply_store_value(timeout, recv_req, packet)

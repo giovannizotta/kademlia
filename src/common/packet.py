@@ -4,9 +4,10 @@ from typing import *
 
 @dataclass
 class Packet():
-    instances: ClassVar[int] = 0
     id: int = field(init=False)
     data: Dict = field(default_factory=dict)
+    
+    instances: ClassVar[int] = 0
     
     def __post_init__(self):
         self.id = Packet.instances
