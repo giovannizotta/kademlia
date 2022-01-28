@@ -90,21 +90,21 @@ class ChordNode(DHTNode):
             sent_req = None
         return best_node, found, sent_req
 
-    def find_node_request(
-        self,
-        packet: Packet,
-        recv_req: simpy.Event
-    ) -> SimpyProcess[ChordNode]:
-        """Serve a find_node request for the given key.
+    # def find_node_request(
+    #     self,
+    #     packet: Packet,
+    #     recv_req: simpy.Event
+    # ) -> SimpyProcess[ChordNode]:
+    #     """Serve a find_node request for the given key.
 
-        Args:
-            packet (Packet): the packet 
-            recv_req (simpy.Event): the event to be triggered by the successful response    
-        """
-        key = self._compute_key(packet.data["key"], self.log_world_size)
-        best_node = yield from self.find_node(key)
-        packet.data["best_node"] = best_node
-        self.send_resp(recv_req)
+    #     Args:
+    #         packet (Packet): the packet 
+    #         recv_req (simpy.Event): the event to be triggered by the successful response    
+    #     """
+    #     key = packet.data["key"]
+    #     best_node = yield from self.find_node(key)
+    #     packet.data["best_node"] = best_node
+    #     self.send_resp(recv_req)
 
     @packet_service
     def on_find_node_request(
@@ -267,7 +267,7 @@ class ChordNode(DHTNode):
     @packet_service
     def reply_find_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet):
         if not timeout.processed:
-            recv_req.succeed()
+            self.send_resp(recv_req)
     
     def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Find the value associated to a given key"""
@@ -294,7 +294,7 @@ class ChordNode(DHTNode):
     @packet_service
     def reply_store_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet):
         if not timeout.processed:
-            recv_req.succeed()
+            self.send_resp(recv_req)
     
     def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Store the value to be associated to a given key"""

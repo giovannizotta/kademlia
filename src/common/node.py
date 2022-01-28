@@ -121,14 +121,14 @@ class DHTNode(Node):
         """Iteratively find the closest node(s) to the given key"""
         pass
 
-    @abstractmethod
-    def find_node_request(
-        self,
-        packet: Packet,
-        recv_req: simpy.Event
-    ) -> SimpyProcess[DHTNode]:
-        """Answer to a request for the node holding a given key"""
-        pass
+    # @abstractmethod
+    # def find_node_request(
+    #     self,
+    #     packet: Packet,
+    #     recv_req: simpy.Event
+    # ) -> SimpyProcess[DHTNode]:
+    #     """Answer to a request for the node holding a given key"""
+    #     pass
 
     @abstractmethod
     def on_find_node_request(
