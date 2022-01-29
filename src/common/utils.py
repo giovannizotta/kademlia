@@ -1,25 +1,32 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+
+import logging
 from abc import ABC, abstractmethod
 from typing import *
-import logging
-import simpy
+
 import numpy as np
+import simpy
+from dataclasses import dataclass, field
 
 # generic from hashable type
 HashableT = TypeVar("HashableT", bound=Hashable)
 # return type for simpy processes
 T = TypeVar('T')
-SimpyProcess = Generator[simpy.Event, simpy.Event, T]
+SimpyProcess = Generator[Union[simpy.Event,
+                               simpy.Process], Union[simpy.Event, simpy.Process], T]
+
 
 class Singleton(type):
-    """Singleton metaclass"""
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    __instances = {}
 
+    def __call__(cls, *args, **kwargs):
+        if cls not in Singleton.__instances:
+            instance = super(Singleton, cls).__call__(*args, **kwargs)
+            Singleton.__instances[cls] = instance
+        return Singleton.__instances[cls]
+
+
+@dataclass
 class RandomBatchGenerator(metaclass=Singleton):
     """Generate random numbers in batch in an optimized way.
 
@@ -28,43 +35,46 @@ class RandomBatchGenerator(metaclass=Singleton):
     BATCH_SIZE = 10000
     _instance = None
 
-    def __init__(self, seed: int=42, precision: int=1):
+    def __init__(self, seed: int = 42, precision: int = 1):
         """Initialize Random Batch Generator
 
         Args:
             seed (int, optional): Random seed to use. Defaults to 42.
             precision (int, optional): Decimal precision of distributions' parameters. Defaults to 1.
         """
-        self._exponentials = {}
-        self._choices = {}
-        self._rng = np.random.default_rng(seed)
-        self.precision = 10**precision
+        self._exponentials: Dict[int, Iterator[float]] = {}
+        self._choices: Dict[int, Iterator[int]] = {}
+        self._rng: np.random.Generator = np.random.default_rng(seed)
+        self.precision: int = 10 ** precision
 
     def get_exponential(self, mean: float) -> float:
         """Draw a number from an exponential with the given mean"""
         # use ints as keys
         mean = round(mean * self.precision)
         if not mean in self._exponentials:
-            self._exponentials[mean] = iter(())
+            self._exponentials[mean] = iter(np.ndarray(0))
         try:
-            exponential = next(self._exponentials[mean])
+            sample = next(self._exponentials[mean])
         except StopIteration:
-            exp = self._rng.exponential(mean/self.precision, RandomBatchGenerator.BATCH_SIZE)
+            exp = self._rng.exponential(
+                mean / self.precision, RandomBatchGenerator.BATCH_SIZE)
             self._exponentials[mean] = iter(exp)
-            exponential = next(self._exponentials[mean])
-        return exponential
+            sample = next(self._exponentials[mean])
+        return sample
+        # return exponential
 
-    def get_choice(self, items: int | Tuple[HashableT]) -> HashableT:
-        """Draw a random item from the range(items) if items is an int or from tuple"""
-        if not items in self._choices:
-            self._choices[items] = iter(())
+    def get_from_range(self, n: int) -> int:
+        """Draw a random item from the range(n)"""
+        if not n in self._choices:
+            self._choices[n] = iter(np.ndarray(0))
         try:
-            choice = next(self._choices[items])
+            choice = next(self._choices[n])
         except StopIteration:
-            choices = self._rng.choice(items, RandomBatchGenerator.BATCH_SIZE)
-            self._choices[items] = iter(choices)
-            choice = next(self._choices[items])
+            choices = self._rng.choice(n, RandomBatchGenerator.BATCH_SIZE)
+            self._choices[n] = iter(choices)
+            choice = next(self._choices[n])
         return choice
+
 
 @dataclass
 class Loggable(ABC):
@@ -72,14 +82,17 @@ class Loggable(ABC):
     env: simpy.Environment = field(repr=False)
     name: str
 
+    id: int = field(init=False)
+
     logger: logging.Logger = field(init=False, repr=False)
     rbg: RandomBatchGenerator = field(init=False, repr=False)
 
     @abstractmethod
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.logger = logging.getLogger("logger")
         self.rbg = RandomBatchGenerator()
 
     def log(self, msg: str, level: int = logging.DEBUG) -> None:
         """Log simulation events"""
-        self.logger.log(level, f"{self.env.now:5.1f} {self.name:>12s}(id {self.id:50d}): {msg}")
+        self.logger.log(
+            level, f"{self.env.now:5.1f} {self.name:>12s}(id {self.id:50d}): {msg}")

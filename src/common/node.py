@@ -1,14 +1,17 @@
 from __future__ import annotations
 from common.utils import *
 from common.packet import *
-from abc import abstractclassmethod, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
-import hashlib, logging
+import hashlib
 from bitstring import BitArray
+from collections.abc import Callable
 
-def packet_service(operation: Callable[..., T]) -> SimpyProcess[T]:
+
+def packet_service(operation: Callable[..., T]) -> \
+        Callable[..., SimpyProcess[T]]:
     """Wait for the Node's resource, perform the operation and wait a random service time."""
-    def wrapper(self: DHTNode, *args):
+    def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
         with self.in_queue.request() as res:
             yield res
             ans = operation(self, *args)
@@ -19,14 +22,12 @@ def packet_service(operation: Callable[..., T]) -> SimpyProcess[T]:
 
 @dataclass
 class Node(Loggable):
-    timeout: int = field(repr=False, default=100.0)
+    max_timeout: float = field(repr=False, default=1000.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.8)
     
-    id: int = field(init=False)
-
     @abstractmethod
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
         self.id = Node._compute_key(self.name, self.log_world_size)        
 
@@ -35,8 +36,9 @@ class Node(Loggable):
         transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
         transmission_delay = self.env.timeout(transmission_time)
         yield transmission_delay
+        return None
 
-    def _req(self, process: SimpyProcess, packet: Packet, sent_req: simpy.Event) -> SimpyProcess:
+    def _req(self, process: Callable[..., SimpyProcess], packet: Packet, sent_req: simpy.Event) -> SimpyProcess:
         """Send a packet after waiting for the transmission time
 
         Args:
@@ -45,9 +47,10 @@ class Node(Loggable):
             sent_req (simpy.Event): the event to be triggered when done with the process
         """
         yield from self._transmit()
-        yield self.env.process(process(packet, sent_req)) 
+        yield self.env.process(process(packet, sent_req))
+        return None
 
-    def send_req(self, answer_method: SimpyProcess, packet: Packet) -> simpy.Event:
+    def send_req(self, answer_method: Callable[..., SimpyProcess], packet: Packet) -> simpy.Event:
         """Send a packet and bind it to a callback
 
         Args:
@@ -72,14 +75,14 @@ class Node(Loggable):
         Returns:
             simpy.Event: the timeout event, which will be checked for processing in case it has elapsed
         """
-        timeout = self.env.timeout(self.timeout)
+        timeout = self.env.timeout(self.max_timeout)
         wait_event = timeout | sent_req
         yield wait_event
         self.log(f"received response")
         return timeout
 
-    def _resp(self, recv_req: simpy.Event)-> SimpyProcess:
-        """Trigger the event of reception after waiting for the trasmission delay
+    def _resp(self, recv_req: simpy.Event) -> SimpyProcess[None]:
+        """Trigger the event of reception after waiting for the transmission delay
 
         Args:
             recv_req (simpy.Event): the reception event that has to be triggered
@@ -101,7 +104,7 @@ class Node(Loggable):
         digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
         bindigest = BitArray(hex=digest).bin
         subbin = bindigest[:log_world_size]
-        return BitArray(bin=subbin).uint
+        return int(BitArray(bin=subbin).uint)
 
 @dataclass
 class DHTNode(Node):
@@ -111,13 +114,17 @@ class DHTNode(Node):
     in_queue: simpy.Resource = field(init=False, repr=False)
 
     @abstractmethod
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
         self.ht = dict()
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
     @abstractmethod
-    def find_node(self, key: int) -> DHTNode:
+    def find_node(
+        self,
+        key: int,
+        ask_to: Optional[DHTNode] = None
+    ) -> SimpyProcess[Optional[DHTNode]]:
         """Iteratively find the closest node(s) to the given key"""
         pass
 
@@ -144,12 +151,13 @@ class DHTNode(Node):
         """Send necessary requests to join the network"""
         pass
 
-    @abstractclassmethod
-    def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
+    @classmethod
+    @abstractmethod
+    def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
         pass
 
     @abstractmethod
-    def update(self):
+    def update(self) -> SimpyProcess:
         """Update finger table"""
         pass
     

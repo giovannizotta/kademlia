@@ -1,6 +1,6 @@
 from chord.node import ChordNode
 from common.utils import *
-from common.node import Node
+from common.node import DHTNode
 from kad.node import KadNode
 from common.simulator import Simulator
 from common.utils import RandomBatchGenerator as RBG
@@ -13,7 +13,7 @@ WORLD_SIZE = 160
 N_KEYS = 10**4
 
 
-def create_nodes(env: simpy.Environment, join: int) -> Sequence[Node]:
+def create_nodes(env: simpy.Environment, join: int) -> Sequence[DHTNode]:
     """Instantiate the nodes for the simulation"""
     nodes: List[ChordNode] = list()
     for i in range(join):
