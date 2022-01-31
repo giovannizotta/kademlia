@@ -17,26 +17,24 @@ class KadNode(DHTNode):
         self.buckets = [[] for _ in range(self.log_world_size)] 
 
 
-    def find_node(self, key: int):
+    def find_node(self, key: int) -> SimpyProcess[List[KadNode]]:
         contacted = set()
         contacted.add(self)
-        last = self.find_neighbors(key, self.k)
+        last = yield from self.find_neighbors(key, self.k)
         while True:
             candidates = last.copy()
-            requests = []
-            contacted_n = 0
+            to_contact = []
             for node in last:
                 if node not in contacted:
                     contacted.add(node)
-                    contacted_n += 1
-                    sent_req = yield from self.ask_neighbors(node, key, self.k)
-                    requests.append(sent_req)
-                if contacted_n == self.alpha:
+                    to_contact.append(node)   
+                if len(to_contact) == self.alpha:
                     break
+            requests = yield from self.ask_neighbors(to_contact, key, self.k)
 
-            packets = []
+            packets: List[Packet] = []
             try:
-                packets = yield from self.wait_resps(requests) 
+                yield from self.wait_resps(requests, packets) 
             except DHTTimeoutError:
                 self.log("DHT timeout error")
            
@@ -47,7 +45,7 @@ class KadNode(DHTNode):
                         candidates.append(neigh)
                         current_set.add(neigh)
 
-            candidates.sort(key = lambda x: KadNode._compute_distance(x, key, self.log_world_size))
+            candidates.sort(key = lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))
             candidates = candidates[:self.k]
             if candidates != last:
                 last = candidates
@@ -56,27 +54,31 @@ class KadNode(DHTNode):
 
         return last
 
-    def find_neighbors(self, key:int, k=None):
+    @packet_service
+    def find_neighbors(self, key:int, k: int) -> List[KadNode]:
         nodes = set() 
         for neigh in NeighborPicker(self, key):
             nodes.add(neigh)
             if len(nodes) == k:
                 break
-        return sorted(nodes, key = lambda x: KadNode._compute_distance(x, key, self.log_world_size))
+        return sorted(nodes, key = lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))
 
     @packet_service
-    def get_neighbors(self, packet: Packet, recv_req: simpy.Event):
+    def get_neighbors(self, packet: Packet, recv_req: simpy.Event) -> None:
         neighs = self.find_neighbors(packet.data["key"], packet.data["k"])
         packet.data["neighbors"] = neighs
         self.send_resp(recv_req, packet)
 
     @packet_service
-    def ask_neighbors(self, node:KadNode, key:int, k:int):
-        packet = Packet()
-        packet.data["key"] = key
-        packet.data["k"] = k
-        sent_req = self.send_req(node.get_neighbors, packet)
-        return sent_req
+    def ask_neighbors(self, to_contact:List[KadNode], key:int, k:int) -> List[simpy.Event]:
+        requests = []
+        for node in to_contact:
+            packet = Packet()
+            packet.data["key"] = key
+            packet.data["k"] = k
+            sent_req = self.send_req(node.get_neighbors, packet)
+            requests.append(sent_req)
+        return requests
 
 
     @staticmethod

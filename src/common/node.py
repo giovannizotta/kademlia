@@ -42,19 +42,19 @@ class Node(Loggable):
         yield transmission_delay
         return None
 
-    def _req(self, process: Callable[..., SimpyProcess], packet: Packet, sent_req: simpy.Event) -> SimpyProcess:
+    def _req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet, sent_req: simpy.Event) -> SimpyProcess[None]:
         """Send a packet after waiting for the transmission time
 
         Args:
-            process ([SimpyProcess]): the process to run
+            answer_method ([SimpyProcess]): the process to run
             packet (Packet): the packet to send
             sent_req (simpy.Event): the event to be triggered when done with the process
         """
         yield from self._transmit()
-        yield self.env.process(process(packet, sent_req))
+        yield self.env.process(answer_method(packet, sent_req))
         return None
 
-    def send_req(self, answer_method: Callable[..., SimpyProcess], packet: Packet) -> simpy.Event:
+    def send_req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet) -> simpy.Event:
         """Send a packet and bind it to a callback
 
         Args:
@@ -70,7 +70,7 @@ class Node(Loggable):
         self.env.process(self._req(answer_method, packet, sent_req))
         return sent_req
 
-    def wait_resps(self, sent_reqs: Sequence[simpy.Event]) -> SimpyProcess[List[Packet]]:
+    def wait_resps(self, sent_reqs: Sequence[simpy.Event], packets: List[Packet]) -> SimpyProcess[None]:
         """Wait for the responses of the recipients
 
         Args:
@@ -86,16 +86,23 @@ class Node(Loggable):
         timeout = self.env.timeout(self.max_timeout)
         wait_event = timeout | sent_req
         ans = yield wait_event
-        if timeout in ans:
-            self.log("timeout", level=logging.WARNING)
+        timeout_found = False
+        packets_received = 0
+        for event, ret_val in ans.items():
+            if event is timeout:
+                timeout_found = True
+            else:
+                packets.append(ret_val)
+                packets_received += 1
+        self.log(f"received {packets_received}/{len(sent_reqs)} response")
+        if timeout_found:
+            self.log("Some responses timed out", level=logging.WARNING)
             raise DHTTimeoutError()
-        answers : List[Packet] = list(ans.values())
-        self.log(f"received {len(answers)} response")
-        return answers
 
     def wait_resp(self, sent_req: simpy.Event) -> SimpyProcess[Packet]:
         """Wait for the response of the recipient (see wait_resps)"""
-        ans = yield from self.wait_resps((sent_req,))
+        ans: List[Packet] = []
+        yield from self.wait_resps((sent_req,), ans)
         return ans[0]
 
     def _resp(self, recv_req: simpy.Event, packet: Packet) -> SimpyProcess[None]:

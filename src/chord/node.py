@@ -227,7 +227,7 @@ class ChordNode(DHTNode):
         # ask them to put me in the ring
         sent_req_pred, sent_req_succ = yield from self._ask_set_pred_succ(node, node_succ)
         # wait for both answers
-        _ = yield from self.wait_resps((sent_req_pred, sent_req_succ))
+        yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
         # I do my rewiring
         yield from self._set_pred_succ(node, node_succ)
 
