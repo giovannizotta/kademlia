@@ -1,7 +1,7 @@
 from __future__ import annotations
 from common.utils import *
 from common.node import DHTNode, packet_service
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from common.packet import Packet
 
 
@@ -132,7 +132,7 @@ class ChordNode(DHTNode):
 
         Args:
             key (int): the key to be searched for
-            ask_to (Optional[ChordNode], optional): first node to contact. Defaults to None.
+            ask_to (Optional[ChordNode], optional): first node to contact. Used only in join. Defaults to None.
         """
         self.log(f"start looking for node holding {key}")
         packet = Packet(data=dict(key=key))
