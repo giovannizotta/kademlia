@@ -75,11 +75,8 @@ class ChordNode(DHTNode):
         return best_node, found, sent_req
 
     @packet_service
-    def _check_best_node(self, packet: Packet, best_node: ChordNode, timeout: simpy.Event) -> \
+    def _check_best_node(self, packet: Packet, best_node: ChordNode) -> \
             Tuple[ChordNode, bool, Optional[simpy.Event]]:
-        if timeout.processed:
-            self.log("TIMEOUT")
-            return self, True, timeout
         tmp = packet.data["best_node"]
         found = best_node is tmp
         best_node = tmp
@@ -124,7 +121,7 @@ class ChordNode(DHTNode):
         key = packet.data["key"]
         best_node, _ = self._get_best_node(key)
         packet.data["best_node"] = best_node
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     def find_node(
         self,
@@ -141,8 +138,8 @@ class ChordNode(DHTNode):
         packet = Packet(data=dict(key=key))
         best_node, found, sent_req = yield from self._get_best_node_and_forward(key, packet, ask_to)
         while not found:
-            timeout = yield from self.wait_resp(sent_req)
-            best_node, found, sent_req = yield from self._check_best_node(packet, best_node, timeout)
+            packet = yield from self.wait_resp(sent_req)
+            best_node, found, sent_req = yield from self._check_best_node(packet, best_node)
 
         return best_node
 
@@ -154,7 +151,7 @@ class ChordNode(DHTNode):
     ) -> None:
         self.log("asked what my successor is")
         packet.data["succ"] = self.succ
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
     def set_successor(
@@ -164,7 +161,7 @@ class ChordNode(DHTNode):
     ) -> None:
         self.succ = packet.data["succ"]
         self.log(f"asked to change my successor to {self.succ}")
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
     def get_predecessor(
@@ -174,7 +171,7 @@ class ChordNode(DHTNode):
     ) -> None:
         self.log("asked what is my predecessor")
         packet.data["pred"] = self.pred
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
     def set_predecessor(
@@ -184,13 +181,10 @@ class ChordNode(DHTNode):
     ) -> None:
         self.pred = packet.data["pred"]
         self.log(f"asked to change my predecessor to {self.pred}")
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
-    def _read_succ_resp(self, packet: Packet, timeout: simpy.Event) -> Optional[ChordNode]:
-        if timeout.processed:
-            self.log("TIMEOUT")
-            return None
+    def _read_succ_resp(self, packet: Packet) -> Optional[ChordNode]:
         self.log(f"got answer for node's succ, it's {packet.data['succ']}")
         succ: Optional[ChordNode] = packet.data["succ"]
         return succ
@@ -212,10 +206,7 @@ class ChordNode(DHTNode):
         return sent_req_pred, sent_req_succ
 
     @packet_service
-    def _set_pred_succ(self, pred: ChordNode, succ: ChordNode, timeout: simpy.Event) -> None:
-        if timeout.processed:
-            self.log("TIMEOUT")
-            return
+    def _set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> None:
         self.log(f"setting my succ to {succ}")
         self.log(f"setting my pred to {pred}")
         self.pred = pred
@@ -228,17 +219,17 @@ class ChordNode(DHTNode):
         # ask node its successor
         packet = Packet()
         sent_req = yield from self.ask_successor(node, packet)
-        # wait for a response (or timeout)
-        timeout = yield from self.wait_resp(sent_req)
+        # wait for a response
+        packet = yield from self.wait_resp(sent_req)
         # serve response
-        node_succ = yield from self._read_succ_resp(packet, timeout)
+        node_succ = yield from self._read_succ_resp(packet)
 
         # ask them to put me in the ring
         sent_req_pred, sent_req_succ = yield from self._ask_set_pred_succ(node, node_succ)
         # wait for both answers
-        timeout = yield from self.wait_resp(sent_req_pred & sent_req_succ)
+        _ = yield from self.wait_resps((sent_req_pred, sent_req_succ))
         # I do my rewiring
-        yield from self._set_pred_succ(node, node_succ, timeout)
+        yield from self._set_pred_succ(node, node_succ)
 
     @classmethod
     def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
@@ -262,7 +253,7 @@ class ChordNode(DHTNode):
         """Get value associated to a given key in the node's hash table"""
         key = packet.data["key"]
         packet.data["value"] = self.ht.get(key)
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
     def ask_value(self, to: ChordNode, packet: Packet) -> simpy.Event:
@@ -271,25 +262,27 @@ class ChordNode(DHTNode):
         return sent_req
 
     @packet_service
-    def reply_find_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet) -> None:
-        if not timeout.processed:
-            self.send_resp(recv_req)
+    def reply_find_value(self, recv_req: simpy.Event, packet: Packet) -> None:
+        self.send_resp(recv_req, packet)
 
     def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess[None]:
         """Find the value associated to a given key"""
         key = packet.data["key"]
-        node = yield from self.find_node(key)
-        sent_req = yield from self.ask_value(node, packet)
-        timeout = yield from self.wait_resp(sent_req)
+        try:
+            node = yield from self.find_node(key)
+            sent_req = yield from self.ask_value(node, packet)
+            packet = yield from self.wait_resp(sent_req)
+        except DHTTimeoutError:
+            packet.data["value"] = None
 
-        yield from self.reply_find_value(timeout, recv_req, packet)
+        yield from self.reply_find_value(recv_req, packet)
 
     @packet_service
     def set_value(self, packet: Packet, recv_req: simpy.Event) -> None:
         """Set the value to be associated to a given key in the node's hash table"""
         key = packet.data["key"]
         self.ht[key] = packet.data["value"]
-        self.send_resp(recv_req)
+        self.send_resp(recv_req, packet)
 
     @packet_service
     def ask_set_value(self, to: ChordNode, packet: Packet) -> simpy.Event:
@@ -299,18 +292,20 @@ class ChordNode(DHTNode):
         return sent_req
 
     @packet_service
-    def reply_store_value(self, timeout: simpy.Event, recv_req: simpy.Event, packet: Packet) -> None:
-        if not timeout.processed:
-            self.send_resp(recv_req)
+    def reply_store_value(self, recv_req: simpy.Event, packet: Packet) -> None:
+        self.send_resp(recv_req, packet)
 
     def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess[None]:
         """Store the value to be associated to a given key"""
         key = packet.data["key"]
-        node = yield from self.find_node(key)
-        sent_req = yield from self.ask_set_value(node, packet)
-        timeout = yield from self.wait_resp(sent_req)
+        try:
+            node = yield from self.find_node(key)
+            sent_req = yield from self.ask_set_value(node, packet)
+            packet = yield from self.wait_resp(sent_req)
+        except DHTTimeoutError:
+            self.log(f"unable to store the ({key} {packet.data['value']} pair")
 
-        yield from self.reply_store_value(timeout, recv_req, packet)
+        yield from self.reply_store_value(recv_req, packet)
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?

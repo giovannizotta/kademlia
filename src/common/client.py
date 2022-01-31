@@ -12,11 +12,11 @@ class Client(Node):
         key_hash = self._compute_key(key, self.log_world_size)
         packet = Packet(data=dict(key=key_hash))
         sent_req = self.send_req(ask_to.find_value, packet)
-        timeout = yield from self.wait_resp(sent_req)
-        if not timeout.processed:
+        try:
+            packet = yield from self.wait_resp(sent_req)
             value = packet.data["value"]
             self.log(f"Received value: DHT[{key}] = {value}")
-        else:
+        except DHTTimeoutError:
             self.log(
                 f"Request for find key {key} timed out", level=logging.WARNING)
 
@@ -25,9 +25,9 @@ class Client(Node):
         key_hash = self._compute_key(key, self.log_world_size)
         packet = Packet(data=dict(key=key_hash, value=value))
         sent_req = self.send_req(ask_to.store_value, packet)
-        timeout = yield from self.wait_resp(sent_req)
-        if not timeout.processed:
+        try:
+            packet = yield from self.wait_resp(sent_req)
             self.log(f"Stored value: DHT[{key}] = {value}")
-        else:
+        except DHTTimeoutError:
             self.log(
                 f"Request for  store key {key} : value {value} timed out", level=logging.WARNING)

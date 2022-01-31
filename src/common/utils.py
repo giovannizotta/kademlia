@@ -6,6 +6,7 @@ from typing import *
 
 import numpy as np
 import simpy
+import simpy.events
 from dataclasses import dataclass, field
 
 # generic from hashable type
@@ -13,11 +14,13 @@ HashableT = TypeVar("HashableT", bound=Hashable)
 # return type for simpy processes
 T = TypeVar('T')
 SimpyProcess = Generator[Union[simpy.Event,
-                               simpy.Process], Union[simpy.Event, simpy.Process], T]
+                               simpy.Process], simpy.events.ConditionValue, T]
 
+class DHTTimeoutError(Exception):
+    pass
 
 class Singleton(type):
-    __instances = {}
+    __instances: Dict = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in Singleton.__instances:

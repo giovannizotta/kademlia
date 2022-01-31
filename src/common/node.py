@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import reduce
 from common.utils import *
 from common.packet import *
 from abc import abstractmethod
@@ -11,6 +12,7 @@ from collections.abc import Callable
 def packet_service(operation: Callable[..., T]) -> \
         Callable[..., SimpyProcess[T]]:
     """Wait for the Node's resource, perform the operation and wait a random service time."""
+
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
         with self.in_queue.request() as res:
             yield res
@@ -20,20 +22,22 @@ def packet_service(operation: Callable[..., T]) -> \
         return ans
     return wrapper
 
+
 @dataclass
 class Node(Loggable):
     max_timeout: float = field(repr=False, default=1000.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.8)
-    
+
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.id = Node._compute_key(self.name, self.log_world_size)        
+        self.id = Node._compute_key(self.name, self.log_world_size)
 
     def _transmit(self) -> SimpyProcess:
         """Wait for the transmission delay of a message"""
-        transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
+        transmission_time = self.rbg.get_exponential(
+            self.mean_transmission_delay)
         transmission_delay = self.env.timeout(transmission_time)
         yield transmission_delay
         return None
@@ -66,38 +70,51 @@ class Node(Loggable):
         self.env.process(self._req(answer_method, packet, sent_req))
         return sent_req
 
-    def wait_resp(self, sent_req: simpy.Event) -> SimpyProcess[simpy.Event]:
-        """Wait for the response of the recipient
+    def wait_resps(self, sent_reqs: Sequence[simpy.Event]) -> SimpyProcess[List[Packet]]:
+        """Wait for the responses of the recipients
 
         Args:
-            sent_req (simpy.Event): the request associated to the wait event
+            sent_reqs (Sequence[simpy.Event]): the requests associated to the wait event
+
+        Raises:
+            DHTTimeoutError: if at least one response times out
 
         Returns:
-            simpy.Event: the timeout event, which will be checked for processing in case it has elapsed
+            List[Packet]: list of packets received
         """
+        sent_req = reduce(lambda x, y: x & y, sent_reqs)
         timeout = self.env.timeout(self.max_timeout)
         wait_event = timeout | sent_req
-        yield wait_event
-        self.log(f"received response")
-        return timeout
+        ans = yield wait_event
+        if timeout in ans:
+            self.log("timeout", level=logging.WARNING)
+            raise DHTTimeoutError()
+        answers : List[Packet] = list(ans.values())
+        self.log(f"received {len(answers)} response")
+        return answers
 
-    def _resp(self, recv_req: simpy.Event) -> SimpyProcess[None]:
+    def wait_resp(self, sent_req: simpy.Event) -> SimpyProcess[Packet]:
+        """Wait for the response of the recipient (see wait_resps)"""
+        ans = yield from self.wait_resps((sent_req,))
+        return ans[0]
+
+    def _resp(self, recv_req: simpy.Event, packet: Packet) -> SimpyProcess[None]:
         """Trigger the event of reception after waiting for the transmission delay
 
         Args:
             recv_req (simpy.Event): the reception event that has to be triggered
         """
         yield from self._transmit()
-        recv_req.succeed()
-        
-    def send_resp(self, recv_req: simpy.Event) -> None:
+        recv_req.succeed(value=packet)
+
+    def send_resp(self, recv_req: simpy.Event, packet: Packet) -> None:
         """Send the response to an event
 
         Args:
             recv_req (simpy.Event): the event to be processed
         """
         self.log(f"sending response...")
-        self.env.process(self._resp(recv_req))
+        self.env.process(self._resp(recv_req, packet))
 
     @staticmethod
     def _compute_key(key_str: str, log_world_size: int) -> int:
@@ -105,6 +122,7 @@ class Node(Loggable):
         bindigest = BitArray(hex=digest).bin
         subbin = bindigest[:log_world_size]
         return int(BitArray(bin=subbin).uint)
+
 
 @dataclass
 class DHTNode(Node):
@@ -160,7 +178,7 @@ class DHTNode(Node):
     def update(self) -> SimpyProcess:
         """Update finger table"""
         pass
-    
+
     @abstractmethod
     def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
         """Get value associated to a given key"""
