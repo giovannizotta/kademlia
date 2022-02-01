@@ -5,6 +5,9 @@ from common.packet import Packet
 from math import log2
 from dataclasses import dataclass
 
+def get_bucket_for(key: int):
+    return int(log2(key))
+
 @dataclass
 class KadNode(DHTNode):
     neigh: Optional[KadNode] = None
@@ -16,6 +19,19 @@ class KadNode(DHTNode):
         super().__post_init__()
         self.buckets = [[] for _ in range(self.log_world_size)] 
 
+    @packet_service
+    def process_sender(self, sender: KadNode):
+        bucket = self.buckets[get_bucket_for(sender.id)]
+        try:
+            index = bucket.index(sender)
+            for i in range(index, len(bucket) -1):
+                bucket[i] = bucket[i+1]
+            bucket[-1] = sender
+        except ValueError:
+            if len(bucket) < self.k:
+                bucket.append(sender)
+            else:
+                pass # TODO: ping least recently seen node and swap with the new one if needed
 
     def find_node(self, key: int) -> SimpyProcess[List[KadNode]]:
         contacted = set()
@@ -88,7 +104,7 @@ class KadNode(DHTNode):
 
 class NeighborPicker:
     def __init__(self, node, key):
-        index = int(log2(key))
+        index = get_bucket_for(key)
         self.current_nodes = node.buckets[index]
         self.left_buckets = node.buckets[:index]
         self.right_buckets = node.buckets[(index + 1):]
