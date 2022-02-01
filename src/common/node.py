@@ -1,12 +1,25 @@
 from __future__ import annotations
 from functools import reduce
 from common.utils import *
-from common.packet import *
 from abc import abstractmethod
 from dataclasses import dataclass, field
 import hashlib
 from bitstring import BitArray
 from collections.abc import Callable
+
+
+@dataclass
+class Packet():
+    id: int = field(init=False)
+    data: Dict = field(default_factory=dict)
+    sender: Node = field(init=False)
+
+    instances: ClassVar[int] = 0
+
+    def __post_init__(self) -> None:
+        self.id = Packet.instances
+        self.sender = None
+        Packet.instances += 1
 
 
 def packet_service(operation: Callable[..., T]) -> \
@@ -34,47 +47,49 @@ class Node(Loggable):
         super().__post_init__()
         self.id = Node._compute_key(self.name, self.log_world_size)
 
-    def _transmit(self) -> SimpyProcess:
+    def new_req(self) -> Request:
+        return Request(self.env.event())
+
+    def _transmit(self) -> SimpyProcess[None]:
         """Wait for the transmission delay of a message"""
         transmission_time = self.rbg.get_exponential(
             self.mean_transmission_delay)
         transmission_delay = self.env.timeout(transmission_time)
         yield transmission_delay
-        return None
 
-    def _req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet, sent_req: simpy.Event) -> SimpyProcess[None]:
+    def _req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet, sent_req: Request) -> SimpyProcess[None]:
         """Send a packet after waiting for the transmission time
 
         Args:
             answer_method ([SimpyProcess]): the process to run
             packet (Packet): the packet to send
-            sent_req (simpy.Event): the event to be triggered when done with the process
+            sent_req (Request): the event to be triggered when done with the process
         """
+        packet.sender = self
         yield from self._transmit()
         yield self.env.process(answer_method(packet, sent_req))
-        return None
 
-    def send_req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet) -> simpy.Event:
+    def send_req(self, answer_method: Callable[..., SimpyProcess[None]], packet: Packet) -> Request:
         """Send a packet and bind it to a callback
 
         Args:
-            answer_method (SimpyProcess): the callback to be called by the receiver
+            answer_method (SimpyProcess): the callback method to be called by the receiver
             packet (Packet): the packet to be sent
 
         Returns:
-            simpy.Event: the request event that will be triggered by the receiver when it is done
+            Request: the request event that will be triggered by the receiver when it is done
         """
         self.log(f"sending packet {packet}...")
-        sent_req = self.env.event()
+        sent_req = self.new_req()
         # transmission time
         self.env.process(self._req(answer_method, packet, sent_req))
         return sent_req
 
-    def wait_resps(self, sent_reqs: Sequence[simpy.Event], packets: List[Packet]) -> SimpyProcess[None]:
+    def wait_resps(self, sent_reqs: Sequence[Request], packets: List[Packet]) -> SimpyProcess[None]:
         """Wait for the responses of the recipients
 
         Args:
-            sent_reqs (Sequence[simpy.Event]): the requests associated to the wait event
+            sent_reqs (Sequence[Request]): the requests associated to the wait event
 
         Raises:
             DHTTimeoutError: if at least one response times out
@@ -99,26 +114,28 @@ class Node(Loggable):
             self.log("Some responses timed out", level=logging.WARNING)
             raise DHTTimeoutError()
 
-    def wait_resp(self, sent_req: simpy.Event) -> SimpyProcess[Packet]:
+    def wait_resp(self, sent_req: Request) -> SimpyProcess[Packet]:
         """Wait for the response of the recipient (see wait_resps)"""
         ans: List[Packet] = []
         yield from self.wait_resps((sent_req,), ans)
         return ans[0]
 
-    def _resp(self, recv_req: simpy.Event, packet: Packet) -> SimpyProcess[None]:
+    def _resp(self, recv_req: Request, packet: Packet) -> SimpyProcess[None]:
         """Trigger the event of reception after waiting for the transmission delay
 
         Args:
-            recv_req (simpy.Event): the reception event that has to be triggered
+            recv_req (Request): the reception event that has to be triggered
         """
+        packet.sender = self
         yield from self._transmit()
         recv_req.succeed(value=packet)
 
-    def send_resp(self, recv_req: simpy.Event, packet: Packet) -> None:
+    def send_resp(self, recv_req: Request, packet: Packet) -> None:
         """Send the response to an event
 
         Args:
-            recv_req (simpy.Event): the event to be processed
+            recv_req (Request): the event to be processed
+            packet (Packet): the packet to send back
         """
         self.log(f"sending response...")
         self.env.process(self._resp(recv_req, packet))
@@ -157,7 +174,7 @@ class DHTNode(Node):
     # def find_node_request(
     #     self,
     #     packet: Packet,
-    #     recv_req: simpy.Event
+    #     recv_req: Request
     # ) -> SimpyProcess[DHTNode]:
     #     """Answer to a request for the node holding a given key"""
     #     pass
@@ -166,7 +183,7 @@ class DHTNode(Node):
     def on_find_node_request(
         self,
         packet: Packet,
-        recv_req: simpy.Event
+        recv_req: Request
     ) -> SimpyProcess:
         """Answer with the node(s) closest to the key among the known ones"""
         pass
@@ -187,12 +204,12 @@ class DHTNode(Node):
         pass
 
     @abstractmethod
-    def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
+    def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:
         """Get value associated to a given key"""
         pass
 
     @abstractmethod
-    def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess:
+    def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:
         """Store the value to be associated to a given key"""
         pass
 

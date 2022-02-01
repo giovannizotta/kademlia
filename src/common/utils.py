@@ -16,6 +16,8 @@ T = TypeVar('T')
 SimpyProcess = Generator[Union[simpy.Event,
                                simpy.Process], simpy.events.ConditionValue, T]
 
+Request = NewType("Request", simpy.Event)
+
 class DHTTimeoutError(Exception):
     pass
 

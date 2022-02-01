@@ -1,8 +1,7 @@
 from __future__ import annotations
 from common.utils import *
-from common.node import DHTNode, packet_service
+from common.node import DHTNode, Packet, packet_service, Request
 from dataclasses import dataclass, field
-from common.packet import Packet
 
 
 @dataclass
@@ -50,7 +49,7 @@ class ChordNode(DHTNode):
 
     @packet_service
     def _get_best_node_and_forward(self, key: int, packet: Packet, ask_to: Optional[ChordNode]) -> \
-            Tuple[ChordNode, bool, Optional[simpy.Event]]:
+            Tuple[ChordNode, bool, Optional[Request]]:
         """Iteratively search for the best node for a given key. 
 
         Args:
@@ -76,7 +75,7 @@ class ChordNode(DHTNode):
 
     @packet_service
     def _check_best_node(self, packet: Packet, best_node: ChordNode) -> \
-            Tuple[ChordNode, bool, Optional[simpy.Event]]:
+            Tuple[ChordNode, bool, Optional[Request]]:
         tmp = packet.data["best_node"]
         found = best_node is tmp
         best_node = tmp
@@ -110,13 +109,13 @@ class ChordNode(DHTNode):
     def on_find_node_request(
         self,
         packet: Packet,
-        recv_req: simpy.Event
+        recv_req: Request
     ) -> None:
         """Get the best node in the finger table of the node for the given key.
 
         Args:
             packet (Packet): the packet
-            recv_req (simpy.Event): the event to be triggered by the successful response
+            recv_req (Request): the event to be triggered by the successful response
         """
         key = packet.data["key"]
         best_node, _ = self._get_best_node(key)
@@ -147,7 +146,7 @@ class ChordNode(DHTNode):
     def get_successor(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
+        recv_req: Request,
     ) -> None:
         self.log("asked what my successor is")
         packet.data["succ"] = self.succ
@@ -157,7 +156,7 @@ class ChordNode(DHTNode):
     def set_successor(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
+        recv_req: Request,
     ) -> None:
         self.succ = packet.data["succ"]
         self.log(f"asked to change my successor to {self.succ}")
@@ -167,7 +166,7 @@ class ChordNode(DHTNode):
     def get_predecessor(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
+        recv_req: Request,
     ) -> None:
         self.log("asked what is my predecessor")
         packet.data["pred"] = self.pred
@@ -177,7 +176,7 @@ class ChordNode(DHTNode):
     def set_predecessor(
         self,
         packet: Packet,
-        recv_req: simpy.Event,
+        recv_req: Request,
     ) -> None:
         self.pred = packet.data["pred"]
         self.log(f"asked to change my predecessor to {self.pred}")
@@ -190,13 +189,13 @@ class ChordNode(DHTNode):
         return succ
 
     @packet_service
-    def ask_successor(self, to: ChordNode, packet: Packet) -> simpy.Event:
+    def ask_successor(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for it's successor")
         sent_req = self.send_req(to.get_successor, packet)
         return sent_req
 
     @packet_service
-    def _ask_set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> Tuple[simpy.Event, simpy.Event]:
+    def _ask_set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> Tuple[Request, Request]:
         self.log(f"asking {pred} to set me as its successor")
         self.log(f"asking {succ} to set me as its predecessor")
         packet_pred = Packet(data=dict(succ=self))
@@ -249,23 +248,23 @@ class ChordNode(DHTNode):
             yield from self._update_ft(x, node)
 
     @packet_service
-    def get_value(self, packet: Packet, recv_req: simpy.Event) -> None:
+    def get_value(self, packet: Packet, recv_req: Request) -> None:
         """Get value associated to a given key in the node's hash table"""
         key = packet.data["key"]
         packet.data["value"] = self.ht.get(key)
         self.send_resp(recv_req, packet)
 
     @packet_service
-    def ask_value(self, to: ChordNode, packet: Packet) -> simpy.Event:
+    def ask_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for the key {packet.data['key']}")
         sent_req = self.send_req(to.get_value, packet)
         return sent_req
 
     @packet_service
-    def reply_find_value(self, recv_req: simpy.Event, packet: Packet) -> None:
+    def reply_find_value(self, recv_req: Request, packet: Packet) -> None:
         self.send_resp(recv_req, packet)
 
-    def find_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess[None]:
+    def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Find the value associated to a given key"""
         key = packet.data["key"]
         try:
@@ -278,24 +277,24 @@ class ChordNode(DHTNode):
         yield from self.reply_find_value(recv_req, packet)
 
     @packet_service
-    def set_value(self, packet: Packet, recv_req: simpy.Event) -> None:
+    def set_value(self, packet: Packet, recv_req: Request) -> None:
         """Set the value to be associated to a given key in the node's hash table"""
         key = packet.data["key"]
         self.ht[key] = packet.data["value"]
         self.send_resp(recv_req, packet)
 
     @packet_service
-    def ask_set_value(self, to: ChordNode, packet: Packet) -> simpy.Event:
+    def ask_set_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(
             f"asking {to} to set the value {packet.data['value']} for the key {packet.data['key']}")
         sent_req = self.send_req(to.set_value, packet)
         return sent_req
 
     @packet_service
-    def reply_store_value(self, recv_req: simpy.Event, packet: Packet) -> None:
+    def reply_store_value(self, recv_req: Request, packet: Packet) -> None:
         self.send_resp(recv_req, packet)
 
-    def store_value(self, packet: Packet, recv_req: simpy.Event) -> SimpyProcess[None]:
+    def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Store the value to be associated to a given key"""
         key = packet.data["key"]
         try:

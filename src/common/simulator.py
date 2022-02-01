@@ -1,7 +1,6 @@
 from chord.node import ChordNode
 from common.node import DHTNode
 from common.utils import *
-from common.packet import *
 from common.client import Client
 import networkx as nx
 import matplotlib.pyplot as plt
