@@ -2,6 +2,7 @@ from chord.node import ChordNode
 from common.node import DHTNode
 from common.utils import *
 from common.client import Client
+from common.net_manager import NetManager
 import networkx as nx
 import matplotlib.pyplot as plt
 import logging
@@ -9,27 +10,28 @@ import logging
 
 @dataclass
 class Simulator(Loggable):
-    nodes: Sequence[DHTNode]
+    net_manager: NetManager
     keys: Sequence[str]
     max_value: int = 10**9
     mean_arrival: float = 1.0
 
     FIND: ClassVar[str] = "FIND"
     STORE: ClassVar[str] = "STORE"
+    KAD: ClassVar[str] = "KAD"
+    CHORD: ClassVar[str] = "CHORD"
     CLIENT_ACTIONS: ClassVar[Tuple[str, str]] = (FIND, STORE)
+    DHT: ClassVar[Tuple[str, str]] = (KAD, CHORD)
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.nodes: Tuple[DHTNode] = tuple(self.nodes)
-        self.keys: Tuple[DHTNode] = tuple(self.keys)
         self.id = -1
 
     def get_arrival_time(self) -> float:
         return self.rbg.get_exponential(self.mean_arrival)
 
     def get_random_node(self) -> DHTNode:
-        n_id = self.rbg.get_from_range(len(self.nodes))
-        return self.nodes[n_id]
+        n_id = self.rbg.get_from_range(len(self.net_manager.nodes))
+        return self.net_manager.nodes[n_id]
 
     def get_random_action(self) -> str:
         a_id = self.rbg.get_from_range(2)
@@ -39,34 +41,14 @@ class Simulator(Loggable):
         k_id = self.rbg.get_from_range(len(self.keys))
         return self.keys[k_id]
 
-    def build_network(self) -> SimpyProcess:
-        for i in range(2, len(self.nodes)):
+    def build_network(self) -> SimpyProcess[None]:
+        for i in range(2, len(self.net_manager.nodes)):
             yield self.env.process(
-                self.nodes[i].join_network(self.nodes[0])
+                self.net_manager.nodes[i].join_network(self.net_manager.nodes[0])
             )
         self.log("All nodes joined", level=logging.INFO)
 
-    def print_network(self, node: ChordNode) -> None:
-        with open("test.tmp", 'w') as f:
-            graph_edges = [(u.id, u.succ.id)
-                           for u in sorted(self.nodes, key=lambda n: n.id)]
-            f.write(f"before: {graph_edges}\n")
-            graph_edges.extend([(node.id, finger.id) for finger in node.ft])
-            f.write(f"after: {graph_edges}\n")
-            f.write(f"ft size: {len(node.ft)}\n")
-            f.write(f"{node.id} ft: {[n.id for n in node.ft]}")
-            G = nx.DiGraph()
-            G.add_edges_from(graph_edges)
-            f.write(f"graph_edges: {len(G.edges)}\n")
-            f.write(f"{len(set(G[node.id]))}\n")
-
-            plt.figure(figsize=(14, 14))
-            nx.draw(G, pos=nx.circular_layout(G),
-                    with_labels=False, node_size=0.3)
-            # plt.savefig("graph.png")
-            plt.show()
-
-    def get_client_behaviour(self, client: Client) -> SimpyProcess:
+    def get_client_behaviour(self, client: Client) -> SimpyProcess[None]:
         """Get random client action (find or store a key/value pair)"""
         action = self.get_random_action()
         key = self.get_random_key()
@@ -81,15 +63,13 @@ class Simulator(Loggable):
 
     def simulate(self) -> SimpyProcess:
         yield from self.build_network()
-        keys = tuple(range(1000))
-        updates = []
-        for node in self.nodes:
-            updates.append(self.env.process(node.update()))
+
+        updates = self.net_manager.prepare_updates()
 
         yield simpy.AllOf(self.env, updates)
         self.log(f"Updates are done for all nodes.", level=logging.INFO)
 
-        self.print_network(self.nodes[0])
+        self.net_manager.print_network(self.net_manager.nodes[0])
         i = 0
         while True:
             # generate request after random time

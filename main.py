@@ -4,6 +4,8 @@ from common.node import DHTNode
 from kad.node import KadNode
 from common.simulator import Simulator
 from common.utils import RandomBatchGenerator as RBG
+from kad.net_manager import KadNetManager
+from chord.net_manager import ChordNetManager
 from argparse import ArgumentParser, Namespace
 import logging
 
@@ -39,7 +41,7 @@ def parse_args() -> Namespace:
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
     # chord_parser = sp.add_parser("chord", help="Chord")
-    ap.add_argument("-d", "--dht", choices=['kad', 'chord'], help="DHT to use")
+    ap.add_argument("-d", "--dht", choices=[Simulator.KAD, Simulator.CHORD], help="DHT to use")
     return ap.parse_args()
 
 
@@ -55,9 +57,13 @@ def main() -> None:
     # init random seed
     RBG(seed=args.seed)
     env = simpy.Environment()
-    nodes = create_nodes(env, args.nodes)
-    keys = map(lambda x : f"key_{x}", range(N_KEYS))
-    simulator = Simulator(env, "Simulator", nodes, keys)
+    keys = list(map(lambda x : f"key_{x}", range(N_KEYS)))
+    if args.dht == Simulator.KAD:
+        net_manager = KadNetManager(env, args.nodes, WORLD_SIZE)
+    elif args.dht == Simulator.CHORD:
+        net_manager = ChordNetManager(env, args.nodes, WORLD_SIZE)
+
+    simulator = Simulator(env, "Simulator", net_manager, keys)
     env.process(simulator.simulate())
     env.run(until=args.max_time)
 

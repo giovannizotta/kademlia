@@ -106,7 +106,7 @@ class Node(Loggable):
         for event, ret_val in ans.items():
             if event is timeout:
                 timeout_found = True
-            else:
+            elif isinstance(ret_val, Packet):
                 packets.append(ret_val)
                 packets_received += 1
         self.log(f"received {packets_received}/{len(sent_reqs)} response")
@@ -196,11 +196,6 @@ class DHTNode(Node):
     @classmethod
     @abstractmethod
     def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
-        pass
-
-    @abstractmethod
-    def update(self) -> SimpyProcess:
-        """Update finger table"""
         pass
 
     @abstractmethod
