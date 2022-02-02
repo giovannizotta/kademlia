@@ -15,19 +15,6 @@ WORLD_SIZE = 160
 N_KEYS = 10**4
 
 
-def create_nodes(env: simpy.Environment, join: int) -> Sequence[DHTNode]:
-    """Instantiate the nodes for the simulation"""
-    nodes: List[ChordNode] = list()
-    for i in range(join):
-        nodes.append(ChordNode(env, f"node_{i:05d}", log_world_size=WORLD_SIZE))
-    # hardwire two nodes
-    nodes[0].succ = nodes[1]
-    nodes[1].succ = nodes[0]
-    nodes[0].pred = nodes[1]
-    nodes[1].pred = nodes[0]
-    return nodes
-
-
 def parse_args() -> Namespace:
     ap = ArgumentParser("Kademlia and chord simulator")
     ap.add_argument("-t", "--max-time", type=float, default=1000.0,
@@ -41,7 +28,8 @@ def parse_args() -> Namespace:
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
     # chord_parser = sp.add_parser("chord", help="Chord")
-    ap.add_argument("-d", "--dht", choices=[Simulator.KAD, Simulator.CHORD], help="DHT to use")
+    ap.add_argument("-d", "--dht", required=True,
+                    choices=[Simulator.KAD, Simulator.CHORD], help="DHT to use")
     return ap.parse_args()
 
 
@@ -57,7 +45,7 @@ def main() -> None:
     # init random seed
     RBG(seed=args.seed)
     env = simpy.Environment()
-    keys = list(map(lambda x : f"key_{x}", range(N_KEYS)))
+    keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(env, args.nodes, WORLD_SIZE)
     elif args.dht == Simulator.CHORD:
@@ -66,6 +54,7 @@ def main() -> None:
     simulator = Simulator(env, "Simulator", net_manager, keys)
     env.process(simulator.simulate())
     env.run(until=args.max_time)
+
 
 if __name__ == "__main__":
     main()

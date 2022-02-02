@@ -44,7 +44,8 @@ class Simulator(Loggable):
     def build_network(self) -> SimpyProcess[None]:
         for i in range(2, len(self.net_manager.nodes)):
             yield self.env.process(
-                self.net_manager.nodes[i].join_network(self.net_manager.nodes[0])
+                self.net_manager.nodes[i].join_network(
+                    self.net_manager.nodes[0])
             )
         self.log("All nodes joined", level=logging.INFO)
 

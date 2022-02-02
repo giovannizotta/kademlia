@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 
 
-def get_bucket_for(key: int) -> int:
-    return int(log2(key))
-
 def process_sender(operation: Callable[..., T]) -> Callable[..., T]:
     def wrapper(self: KadNode, packets: Union[Packet, Sequence[Packet]], *args: Any) -> T:
         not_list = False
@@ -45,12 +42,17 @@ class KadNode(DHTNode):
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:
         """Store the value to be associated to a given key"""
         pass
+
     def __post_init__(self):
         super().__post_init__()
         self.buckets = [[] for _ in range(self.log_world_size)]
 
-    def update_bucket(self, node: KadNode):
-        bucket = self.buckets[get_bucket_for(node.id)]
+    def get_bucket_for(self, key: int) -> int:
+        dst = KadNode._compute_distance(key, self.id, self.log_world_size)
+        return dst if dst == 0 else int(log2(dst))
+
+    def update_bucket(self, node: KadNode) -> None:
+        bucket = self.buckets[self.get_bucket_for(node.id)]
         try:
             index = bucket.index(node)
             for i in range(index, len(bucket) - 1):
@@ -62,7 +64,6 @@ class KadNode(DHTNode):
             else:
                 pass  # TODO: ping least recently seen node and swap with the new one if needed
 
-
     def find_node(self, key: int) -> SimpyProcess[List[KadNode]]:
         contacted = set()
         contacted.add(self)
@@ -70,15 +71,15 @@ class KadNode(DHTNode):
         found = False
         while not found:
             requests = yield from self.ask_neighbors(current, contacted, key, self.k)
-            print(contacted)
-            print(current)
+            # print(contacted)
+            # print(current)
             packets: List[Packet] = []
             try:
                 yield from self.wait_resps(requests, packets)
             except DHTTimeoutError:
                 self.log("DHT timeout error")
 
-            print(f"Received {packets}")
+            # print(f"Received {packets}")
             found = yield from self.update_candidates(packets, key, current)
 
         for node in current:
@@ -92,7 +93,7 @@ class KadNode(DHTNode):
         for packet in packets:
             for neigh in packet.data["neighbors"]:
                 current_set.add(neigh)
-        print(current_set)
+        # print(current_set)
 
         candidates = sorted(current_set, key=lambda x: KadNode._compute_distance(
             x.id, key, self.log_world_size))
@@ -133,7 +134,7 @@ class KadNode(DHTNode):
             if len(to_contact) == self.alpha:
                 break
         # send them a request
-        print(f"{self.name} Contacting {len(to_contact)} nodes")
+        # print(f"{self.name} Contacting {len(to_contact)} nodes")
         requests = []
         for node in to_contact:
             packet = Packet()
@@ -148,22 +149,24 @@ class KadNode(DHTNode):
         # keys are log_world_size bits long
         return key1 ^ key2
 
-    def join_network(self, to: KadNode) -> SimpyProcess[None]:
+    def join_network(self, to: DHTNode) -> SimpyProcess[None]:
+        to = cast(KadNode, to)
         self.update_bucket(to)
         yield from self.find_node(self.id)
 
+
 class NeighborPicker:
-    def __init__(self, node, key):
-        index = get_bucket_for(key)
+    def __init__(self, node: KadNode, key: int) -> None:
+        index = node.get_bucket_for(key)
         self.current_nodes = node.buckets[index]
         self.left_buckets = node.buckets[:index]
         self.right_buckets = node.buckets[(index + 1):]
         self.left = True
 
-    def __iter__(self):
+    def __iter__(self) -> NeighborPicker:
         return self
 
-    def __next__(self):
+    def __next__(self) -> KadNode:
         """
         Pop an item from the left subtree, then right, then left, etc.
         """

@@ -18,7 +18,6 @@ class Packet():
 
     def __post_init__(self) -> None:
         self.id = Packet.instances
-        self.sender = None
         Packet.instances += 1
 
 
@@ -66,6 +65,7 @@ class Node(Loggable):
             sent_req (Request): the event to be triggered when done with the process
         """
         packet.sender = self
+        self.log(f"sending packet {packet}...")
         yield from self._transmit()
         yield self.env.process(answer_method(packet, sent_req))
 
@@ -79,7 +79,6 @@ class Node(Loggable):
         Returns:
             Request: the request event that will be triggered by the receiver when it is done
         """
-        self.log(f"sending packet {packet}...")
         sent_req = self.new_req()
         # transmission time
         self.env.process(self._req(answer_method, packet, sent_req))

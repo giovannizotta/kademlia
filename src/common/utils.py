@@ -18,8 +18,10 @@ SimpyProcess = Generator[Union[simpy.Event,
 
 Request = NewType("Request", simpy.Event)
 
+
 class DHTTimeoutError(Exception):
     pass
+
 
 class Singleton(type):
     __instances: Dict = {}

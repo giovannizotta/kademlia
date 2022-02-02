@@ -1,23 +1,27 @@
 from common.net_manager import *
 from kad.node import KadNode
 from common.utils import *
-from networkx.drawing.nx_pydot import graphviz_layout
+from networkx.drawing.nx_pydot import pydot_layout
+
+
+def get_key(id: int) -> str:
+    return f"{id:0160b}"
 
 
 class Trie(nx.DiGraph):
-    
+
     def __init__(self):
         super().__init__()
         self.root = "A"
         self.add_node(self.root, bit="A")
-        
+
     def get_labels(self):
         return {n: attr["bit"] for n, attr in self.nodes.items()}
 
-    def add(self, to_add: KadNode):
+    def add(self, to_add: str) -> None:
         node = self.root
         prefix = ""
-        for bit in bin(to_add.id)[2:]:
+        for bit in to_add:
             prefix += bit
             for child in self[node]:
                 if self.nodes[child]["bit"] == bit:
@@ -37,11 +41,11 @@ class Trie(nx.DiGraph):
             child = next(iter(self[node]))
             self.remove_node(child)
         return prunable
-        
-    def find_prefix(self, to_add: KadNode):
+
+    def find_prefix(self, to_add: str) -> str:
         node = self.root
         prefix = ""
-        for bit in bin(to_add.id)[2:]:
+        for bit in to_add:
             for child in self[node]:
                 if self.nodes[child]["bit"] == bit:
                     prefix += bit
@@ -49,43 +53,65 @@ class Trie(nx.DiGraph):
                     break
             else:
                 return prefix
+        return prefix
+
+    def get_sorted(self):
+        """Return a copy where adjacency list is sorted"""
+        new_trie = Trie()
+        stack = [self.root]
+        while stack:
+            node = stack.pop()
+            for child in sorted(self[node]):
+                new_trie.add(child)
+                stack.append(child)
+        return new_trie
 
 
 class KadNetManager(NetManager):
 
-    def __init__(self, env: simpy.Environment, n_nodes:int, log_world_size:int) -> None:
+    def __init__(self, env: simpy.Environment, n_nodes: int, log_world_size: int) -> None:
         super().__init__(env, n_nodes, log_world_size)
         self.trie = Trie()
         for node in self.nodes:
-            self.trie.add(node)
+            self.trie.add(get_key(node.id))
 
         self.trie.prune(self.trie.root)
+        self.trie = self.trie.get_sorted()
 
     def create_nodes(self) -> None:
         """Instantiate the nodes for the simulation"""
-        self.nodes: List[KadNode] = list()
+        self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
-            self.nodes.append(KadNode(self.env, f"node_{i:05d}", log_world_size=self.log_world_size))
+            self.nodes.append(
+                KadNode(self.env, f"node_{i:05d}", log_world_size=self.log_world_size))
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])
-        
 
-    def print_network(self, node: KadNode) -> None:
+    def print_network(self, node: DHTNode) -> None:
+        node = cast(KadNode, node)
+        # compute the layout before adding buckets edges
+        pos = pydot_layout(self.trie, prog="dot")
+
+        # add buckets edges
         edges = []
+        color_map = {node: 'lightblue' for node in self.trie.nodes}
+
+        a_pfx = self.trie.find_prefix(get_key(node.id))
+        color_map[a_pfx] = 'red'
         for bucket in node.buckets:
             if len(bucket) > 0:
-                a = self.trie.find_prefix(node)
-                for b in bucket:
-                    b = self.trie.find_prefix(b)
-                    print(a, b)
-                    edges.append((a, b))
-        
+                for b in bucket[:1]:
+                    # print(get_key(b.id))
+                    b_pfx = self.trie.find_prefix(get_key(b.id))
+                    color_map[b] = 'green'
+                    edges.append((a_pfx, b_pfx))
+        colors = [color_map[n] for n in self.trie.nodes]
         self.trie.add_edges_from(edges)
-        pos = graphviz_layout(self.trie, prog="dot")
-        nx.draw(self.trie, pos, with_labels=True, labels=self.trie.get_labels(), node_size=1200)
+
+        nx.draw(self.trie, pos, with_labels=True,
+                labels=self.trie.get_labels(), node_size=1200, node_color=colors)
         plt.show()
 
-    def prepare_updates(self) -> List[simpy.Event]:
+    def prepare_updates(self) -> List[simpy.Process]:
         return []
-
