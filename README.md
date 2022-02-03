@@ -26,6 +26,6 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
 
 # Plots
 
-![Kademlia](kad.pdf)
+![Kademlia](kad.png)
 
-![Chord](chord.pdf)
+![Chord](chord.png)
