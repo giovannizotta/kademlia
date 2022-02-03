@@ -43,10 +43,12 @@ class Simulator(Loggable):
 
     def build_network(self) -> SimpyProcess[None]:
         for i in range(2, len(self.net_manager.nodes)):
+            self.log(f"node {i} trying to join")
             yield self.env.process(
                 self.net_manager.nodes[i].join_network(
                     self.net_manager.nodes[0])
             )
+            self.log(f"node {i} joined")
         self.log("All nodes joined", level=logging.INFO)
 
     def get_client_behaviour(self, client: Client) -> SimpyProcess[None]:
@@ -70,7 +72,7 @@ class Simulator(Loggable):
         yield simpy.AllOf(self.env, updates)
         self.log(f"Updates are done for all nodes.", level=logging.INFO)
 
-        self.net_manager.print_network(self.net_manager.nodes[0])
+        self.net_manager.print_network(self.net_manager.nodes[10])
         i = 0
         while True:
             # generate request after random time

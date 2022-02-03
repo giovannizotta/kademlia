@@ -115,6 +115,7 @@ class KadNetManager(NetManager):
                 ns.append(0.3)
 
         # draw trie
+        plt.figure(figsize=(20, 12))
         pos = pydot_layout(self.trie, prog="dot")
         nx.draw(self.trie, pos, with_labels=False,
                 node_size=ns, node_color=colors)
@@ -125,7 +126,8 @@ class KadNetManager(NetManager):
         nx.draw_networkx_edges(self.trie, pos, edgelist=buckets_edges, node_size=ns,
                                edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
 
-        plt.show()
+        plt.savefig("kad.pdf", format="pdf", bbox_inches=0, pad_inches=0)
+        #plt.show()
 
     def prepare_updates(self) -> List[simpy.Process]:
         return []

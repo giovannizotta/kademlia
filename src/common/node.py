@@ -27,17 +27,21 @@ def packet_service(operation: Callable[..., T]) -> \
 
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
         with self.in_queue.request() as res:
+            self.log("Trying to acquire queue")
             yield res
+            self.log("Queue acquired")
             ans = operation(self, *args)
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
+
+        self.log("Queue released")
         return ans
     return wrapper
 
 
 @dataclass
 class Node(Loggable):
-    max_timeout: float = field(repr=False, default=1000.0)
+    max_timeout: float = field(repr=False, default=10000000.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.8)
 
@@ -97,6 +101,7 @@ class Node(Loggable):
             List[Packet]: list of packets received
         """
         sent_req = reduce(lambda x, y: x & y, sent_reqs)
+        self.log(f"sent requests: {sent_req}")
         timeout = self.env.timeout(self.max_timeout)
         wait_event = timeout | sent_req
         ans = yield wait_event
@@ -151,7 +156,7 @@ class Node(Loggable):
 class DHTNode(Node):
     mean_service_time: float = field(repr=False, default=0.8)
 
-    ht: Dict[int, Any] = field(init=False)
+    ht: Dict[int, Any] = field(init=False, repr=False)
     in_queue: simpy.Resource = field(init=False, repr=False)
 
     @abstractmethod
@@ -196,6 +201,18 @@ class DHTNode(Node):
     @abstractmethod
     def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
         pass
+
+    def get_value(self, packet: Packet, recv_req: Request) -> None:
+        """Get value associated to a given key in the node's hash table"""
+        key = packet.data["key"]
+        packet.data["value"] = self.ht.get(key)
+        self.send_resp(recv_req, packet)
+
+    def set_value(self, packet: Packet, recv_req: Request) -> None:
+        """Set the value to be associated to a given key in the node's hash table"""
+        key = packet.data["key"]
+        self.ht[key] = packet.data["value"]
+        self.send_resp(recv_req, packet)
 
     @abstractmethod
     def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:

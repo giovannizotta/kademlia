@@ -7,6 +7,7 @@ from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
 from chord.net_manager import ChordNetManager
 from argparse import ArgumentParser, Namespace
+from tqdm import tqdm
 import logging
 
 NODES_TO_JOIN = 10
@@ -17,7 +18,7 @@ N_KEYS = 10**4
 
 def parse_args() -> Namespace:
     ap = ArgumentParser("Kademlia and chord simulator")
-    ap.add_argument("-t", "--max-time", type=float, default=1000.0,
+    ap.add_argument("-t", "--max-time", type=int, default=1000,
                     help="Maximum time to run the simulation")
     ap.add_argument("-n", "--nodes", type=int, default=NODES_TO_JOIN,
                     help="Number of nodes that will join the network at the beginning")
@@ -53,7 +54,8 @@ def main() -> None:
 
     simulator = Simulator(env, "Simulator", net_manager, keys)
     env.process(simulator.simulate())
-    env.run(until=args.max_time)
+    for i in tqdm(range(args.max_time)):
+        env.run(until=i+1)
 
 
 if __name__ == "__main__":

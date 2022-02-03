@@ -14,6 +14,14 @@ class ChordNode(DHTNode):
         super().__post_init__()
         self.ft: List[ChordNode] = [self] * self.log_world_size
 
+    @packet_service
+    def get_value(self, packet: Packet, recv_req: Request) -> None:
+        super().get_value(packet, recv_req)
+
+    @packet_service
+    def set_value(self, packet: Packet, recv_req: Request) -> None:
+        super().set_value(packet, recv_req)
+
     @property
     def succ(self) -> Optional[ChordNode]:
         return self._succ
@@ -248,13 +256,6 @@ class ChordNode(DHTNode):
             yield from self._update_ft(x, node)
 
     @packet_service
-    def get_value(self, packet: Packet, recv_req: Request) -> None:
-        """Get value associated to a given key in the node's hash table"""
-        key = packet.data["key"]
-        packet.data["value"] = self.ht.get(key)
-        self.send_resp(recv_req, packet)
-
-    @packet_service
     def ask_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for the key {packet.data['key']}")
         sent_req = self.send_req(to.get_value, packet)
@@ -275,13 +276,6 @@ class ChordNode(DHTNode):
             packet.data["value"] = None
 
         yield from self.reply_find_value(recv_req, packet)
-
-    @packet_service
-    def set_value(self, packet: Packet, recv_req: Request) -> None:
-        """Set the value to be associated to a given key in the node's hash table"""
-        key = packet.data["key"]
-        self.ht[key] = packet.data["value"]
-        self.send_resp(recv_req, packet)
 
     @packet_service
     def ask_set_value(self, to: ChordNode, packet: Packet) -> Request:
