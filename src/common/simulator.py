@@ -1,10 +1,7 @@
-from chord.node import ChordNode
 from common.node import DHTNode
 from common.utils import *
 from common.client import Client
 from common.net_manager import NetManager
-import networkx as nx
-import matplotlib.pyplot as plt
 import logging
 
 
@@ -12,6 +9,7 @@ import logging
 class Simulator(Loggable):
     net_manager: NetManager
     keys: Sequence[str]
+    plot: bool
     max_value: int = 10**9
     mean_arrival: float = 1.0
 
@@ -72,7 +70,8 @@ class Simulator(Loggable):
         yield simpy.AllOf(self.env, updates)
         self.log(f"Updates are done for all nodes.", level=logging.INFO)
 
-        self.net_manager.print_network(self.net_manager.nodes[10])
+        if self.plot:
+            self.net_manager.print_network(self.net_manager.nodes[10])
         i = 0
         while True:
             # generate request after random time

@@ -26,6 +26,8 @@ def parse_args() -> Namespace:
                     help="Random seed")
     ap.add_argument("-l", "--loglevel", type=str, default=logging.INFO,
                     help="Logging level")
+    ap.add_argument("-p", "--plot", type=bool, default=False,
+                    help="Plot the network graph")
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
     # chord_parser = sp.add_parser("chord", help="Chord")
@@ -52,7 +54,7 @@ def main() -> None:
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(env, args.nodes, WORLD_SIZE)
 
-    simulator = Simulator(env, "Simulator", net_manager, keys)
+    simulator = Simulator(env, "Simulator", net_manager, keys, args.plot)
     env.process(simulator.simulate())
     for i in tqdm(range(args.max_time)):
         env.run(until=i+1)
