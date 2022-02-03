@@ -21,13 +21,25 @@ class ChordNetManager(NetManager):
         node = cast(ChordNode, node)
         graph_edges = [(u.id, u.succ.id)
                        for u in sorted(self.nodes, key=lambda n: n.id)]
-        graph_edges.extend([(node.id, finger.id) for finger in node.ft])
+        ft_edges = [(node.id, finger.id) for finger in node.ft]
         G = nx.DiGraph()
         G.add_edges_from(graph_edges)
+        # get nodes color
+        color_map = {n: NetManager.NODE_COLOR for n in G.nodes}
+        assert node.id in color_map
+        for finger in node.ft:
+            color_map[finger.id] = NetManager.TARGETS_COLOR
+        color_map[node.id] = NetManager.SOURCE_COLOR
+        colors = [color_map[n] for n in G.nodes]
 
-        plt.figure(figsize=(14, 14))
-        nx.draw(G, pos=nx.circular_layout(G),
-                with_labels=False, node_size=0.3)
+        # draw ring
+        pos = nx.circular_layout(G)
+        nx.draw(G, pos, with_labels=False, node_size=NetManager.NODE_SIZE, node_color=colors,
+                connectionstyle="arc3,rad=0.05")
+
+        # draw ft edges
+        nx.draw_networkx_edges(G, pos, edgelist=ft_edges, node_size=NetManager.NODE_SIZE,
+                               edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
         # plt.savefig("chord.png")
         plt.show()
 

@@ -16,7 +16,7 @@ class Trie(nx.DiGraph):
         self.add_node(self.root, bit="A")
 
     def get_labels(self):
-        return {n: attr["bit"] for n, attr in self.nodes.items()}
+        return {(a, b): self.nodes[b]["bit"] for a, b in self.edges()}
 
     def add(self, to_add: str) -> None:
         node = self.root
@@ -90,27 +90,41 @@ class KadNetManager(NetManager):
 
     def print_network(self, node: DHTNode) -> None:
         node = cast(KadNode, node)
-        # compute the layout before adding buckets edges
-        pos = pydot_layout(self.trie, prog="dot")
 
         # add buckets edges
-        edges = []
-        color_map = {node: 'lightblue' for node in self.trie.nodes}
-
+        buckets_edges = []
+    
+        color_map = {node: NetManager.NODE_COLOR for node in self.trie.nodes}
         a_pfx = self.trie.find_prefix(get_key(node.id))
-        color_map[a_pfx] = 'red'
+        color_map[a_pfx] = NetManager.SOURCE_COLOR
         for bucket in node.buckets:
             if len(bucket) > 0:
                 for b in bucket[:1]:
                     # print(get_key(b.id))
                     b_pfx = self.trie.find_prefix(get_key(b.id))
-                    color_map[b] = 'green'
-                    edges.append((a_pfx, b_pfx))
+                    color_map[b_pfx] = NetManager.TARGETS_COLOR
+                    buckets_edges.append((a_pfx, b_pfx))
         colors = [color_map[n] for n in self.trie.nodes]
-        self.trie.add_edges_from(edges)
 
-        nx.draw(self.trie, pos, with_labels=True,
-                labels=self.trie.get_labels(), node_size=1200, node_color=colors)
+        # get nodes size
+        ns = []
+        for n in self.trie.nodes():
+            if self.trie.out_degree(n) == 0:
+                ns.append(NetManager.NODE_SIZE)
+            else:
+                ns.append(0.3)
+
+        # draw trie
+        pos = pydot_layout(self.trie, prog="dot")
+        nx.draw(self.trie, pos, with_labels=False,
+                node_size=ns, node_color=colors)
+        nx.draw_networkx_edge_labels(self.trie, pos,
+                                     edge_labels=self.trie.get_labels(), rotate=False)
+
+        # draw buckets edges
+        nx.draw_networkx_edges(self.trie, pos, edgelist=buckets_edges, node_size=ns,
+                               edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
+
         plt.show()
 
     def prepare_updates(self) -> List[simpy.Process]:

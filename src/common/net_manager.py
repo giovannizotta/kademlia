@@ -8,6 +8,12 @@ import matplotlib.pyplot as plt
 
 class NetManager(ABC):
 
+    NODE_SIZE: ClassVar[float] = 1200
+
+    NODE_COLOR: ClassVar[str] = "#89c2d9"
+    SOURCE_COLOR: ClassVar[str] = "#f9844a"
+    TARGETS_COLOR: ClassVar[str] = "#277da1"
+
     def __init__(self, env: simpy.Environment, n_nodes: int, log_world_size: int) -> None:
         self.nodes: Sequence[DHTNode] = list()
         self.env = env
