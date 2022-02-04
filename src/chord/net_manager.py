@@ -21,7 +21,7 @@ class ChordNetManager(NetManager):
         node = cast(ChordNode, node)
         graph_edges = [(u.id, u.succ.id)
                        for u in sorted(self.nodes, key=lambda n: n.id)]
-        ft_edges = [(node.id, finger.id) for finger in node.ft]
+        ft_edges = set([(node.id, finger.id) for finger in node.ft])
         G = nx.DiGraph()
         G.add_edges_from(graph_edges)
         # get nodes color

@@ -112,13 +112,13 @@ class KadNetManager(NetManager):
             if self.trie.out_degree(n) == 0:
                 ns.append(NetManager.NODE_SIZE)
             else:
-                ns.append(0.3)
+                ns.append(0)
 
         # draw trie
         plt.figure(figsize=(20, 12))
         pos = pydot_layout(self.trie, prog="dot")
         nx.draw(self.trie, pos, with_labels=False,
-                node_size=ns, node_color=colors)
+                node_size=ns, node_color=colors, arrowstyle="-")
         nx.draw_networkx_edge_labels(self.trie, pos,
                                      edge_labels=self.trie.get_labels(), rotate=False)
 
@@ -126,7 +126,7 @@ class KadNetManager(NetManager):
         nx.draw_networkx_edges(self.trie, pos, edgelist=buckets_edges, node_size=ns,
                                edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
 
-        plt.savefig("kad.pdf", format="pdf", bbox_inches=0, pad_inches=0)
+        plt.savefig("kad.png", bbox_inches=0, pad_inches=0)
         plt.show()
 
     def prepare_updates(self) -> List[simpy.Process]:
