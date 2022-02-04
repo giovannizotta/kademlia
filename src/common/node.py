@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import hashlib
 from bitstring import BitArray
 from collections.abc import Callable
+from collections import defaultdict
 
 
 @dataclass
@@ -26,29 +27,48 @@ def packet_service(operation: Callable[..., T]) -> \
     """Wait for the Node's resource, perform the operation and wait a random service time."""
 
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
+        before = self.env.now
         with self.in_queue.request() as res:
+            self.datacollector.queue_load[self.id].append((self.env.now, len(self.in_queue.queue)))
             self.log("Trying to acquire queue")
             yield res
             self.log("Queue acquired")
+            after = self.env.now
+            self.datacollector.packet_wait_time[self.id].append(after - before)
             ans = operation(self, *args)
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
 
         self.log("Queue released")
+        self.datacollector.queue_load[self.id].append((self.env.now, len(self.in_queue.queue)))
         return ans
     return wrapper
 
 
 @dataclass
+class DataCollector(metaclass=Singleton):
+    timed_out_requests: int = 0
+    client_requests: List[Tuple[float, int]] = field(default_factory=list)
+    queue_load: DefaultDict[int, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
+    packet_wait_time: DefaultDict[int, List[float]] = field(default_factory=lambda: defaultdict(list))
+
+    def clear(self):
+        self.timed_out_requests = 0
+        self.client_requests.clear()
+        self.queue_load.clear()
+        self.packet_wait_time.clear()
+
+@dataclass
 class Node(Loggable):
-    max_timeout: float = field(repr=False, default=10000000.0)
+    max_timeout: float = field(repr=False, default=500.0)
     log_world_size: int = field(repr=False, default=10)
-    mean_transmission_delay: float = field(repr=False, default=0.8)
+    mean_transmission_delay: float = field(repr=False, default=0.5)
 
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
         self.id = Node._compute_key(self.name, self.log_world_size)
+        self.datacollector = DataCollector()
 
     def new_req(self) -> Request:
         return Request(self.env.event())
@@ -154,7 +174,7 @@ class Node(Loggable):
 
 @dataclass
 class DHTNode(Node):
-    mean_service_time: float = field(repr=False, default=0.8)
+    mean_service_time: float = field(repr=False, default=0.1)
 
     ht: Dict[int, Any] = field(init=False, repr=False)
     in_queue: simpy.Resource = field(init=False, repr=False)
@@ -165,6 +185,10 @@ class DHTNode(Node):
         self.ht = dict()
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
+    def change_env(self, env: simpy.Environment):
+        self.env = env
+        self.in_queue = simpy.Resource(self.env, capacity=1)
+
     @abstractmethod
     def find_node(
         self,
@@ -173,15 +197,6 @@ class DHTNode(Node):
     ) -> SimpyProcess[Optional[DHTNode]]:
         """Iteratively find the closest node(s) to the given key"""
         pass
-
-    # @abstractmethod
-    # def find_node_request(
-    #     self,
-    #     packet: Packet,
-    #     recv_req: Request
-    # ) -> SimpyProcess[DHTNode]:
-    #     """Answer to a request for the node holding a given key"""
-    #     pass
 
     @abstractmethod
     def on_find_node_request(
@@ -215,12 +230,12 @@ class DHTNode(Node):
         self.send_resp(recv_req, packet)
 
     @abstractmethod
-    def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:
+    def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Get value associated to a given key"""
         pass
 
     @abstractmethod
-    def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess:
+    def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Store the value to be associated to a given key"""
         pass
 

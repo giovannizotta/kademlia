@@ -1,14 +1,12 @@
-from chord.node import ChordNode
+from common.node import DataCollector
 from common.utils import *
-from common.node import DHTNode
-from kad.node import KadNode
 from common.simulator import Simulator
 from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
 from chord.net_manager import ChordNetManager
 from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
-import logging
+import logging, pickle
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
@@ -40,24 +38,33 @@ def main() -> None:
     args = parse_args()
     logger = logging.getLogger("logger")
     logger.setLevel(args.loglevel)
-    fh = logging.FileHandler("logs.log", mode='w')
+    fh = logging.FileHandler(f"{args.dht}_logs.log", mode='w')
     fh.setLevel(args.loglevel)
     formatter = logging.Formatter('%(levelname)10s: %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     # init random seed
     RBG(seed=args.seed)
-    env = simpy.Environment()
+    join_env = simpy.Environment()
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
-        net_manager = KadNetManager(env, args.nodes, WORLD_SIZE)
+        net_manager = KadNetManager(join_env, args.nodes, WORLD_SIZE)
     elif args.dht == Simulator.CHORD:
-        net_manager = ChordNetManager(env, args.nodes, WORLD_SIZE)
+        net_manager = ChordNetManager(join_env, args.nodes, WORLD_SIZE)
 
-    simulator = Simulator(env, "Simulator", net_manager, keys, args.plot)
-    env.process(simulator.simulate())
+    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot)
+    join_env.process(simulator.simulate_join())
+    join_env.run()
+    
+    datacollector = DataCollector()
+    datacollector.clear()
+    run_env = simpy.Environment()
+    run_env.process(simulator.simulate(run_env))
     for i in tqdm(range(args.max_time)):
-        env.run(until=i+1)
+        run_env.run(until=i+1)
+        
+    with open(f'{args.dht}.txt', 'wb') as f:
+        pickle.dump(DataCollector(), f)
 
 
 if __name__ == "__main__":

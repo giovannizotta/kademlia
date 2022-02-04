@@ -97,22 +97,6 @@ class ChordNode(DHTNode):
             sent_req = None
         return best_node, found, sent_req
 
-    # def find_node_request(
-    #     self,
-    #     packet: Packet,
-    #     recv_req: simpy.Event
-    # ) -> SimpyProcess[ChordNode]:
-    #     """Serve a find_node request for the given key.
-
-    #     Args:
-    #         packet (Packet): the packet
-    #         recv_req (simpy.Event): the event to be triggered by the successful response
-    #     """
-    #     key = packet.data["key"]
-    #     best_node = yield from self.find_node(key)
-    #     packet.data["best_node"] = best_node
-    #     self.send_resp(recv_req)
-
     @packet_service
     def on_find_node_request(
         self,
@@ -134,7 +118,7 @@ class ChordNode(DHTNode):
         self,
         key: int,
         ask_to: Optional[DHTNode] = None
-    ) -> SimpyProcess[Optional[DHTNode]]:
+    ) -> SimpyProcess[Tuple[Optional[DHTNode], int]]:
         """Execute the iterative search to find the best node for the given key.
 
         Args:
@@ -144,11 +128,13 @@ class ChordNode(DHTNode):
         self.log(f"start looking for node holding {key}")
         packet = Packet(data=dict(key=key))
         best_node, found, sent_req = yield from self._get_best_node_and_forward(key, packet, ask_to)
+        hops = 0
         while not found:
+            hops += 1
             packet = yield from self.wait_resp(sent_req)
             best_node, found, sent_req = yield from self._check_best_node(packet, best_node)
 
-        return best_node
+        return best_node, hops
 
     @packet_service
     def get_successor(
@@ -222,7 +208,7 @@ class ChordNode(DHTNode):
     def join_network(self, to: DHTNode) -> SimpyProcess[None]:
         self.log(f"trying to join the network from {to}")
         # ask to to find_node
-        node = yield from self.find_node(self.id, ask_to=to)
+        node, hops = yield from self.find_node(self.id, ask_to=to)
         # ask node its successor
         packet = Packet()
         sent_req = yield from self.ask_successor(node, packet)
@@ -252,7 +238,7 @@ class ChordNode(DHTNode):
     def update(self) -> SimpyProcess[None]:
         for x in range(self.log_world_size):
             key = (self.id + 2**x) % (2 ** self.log_world_size)
-            node = yield from self.find_node(key)
+            node, hops = yield from self.find_node(key)
             yield from self._update_ft(x, node)
 
     @packet_service
@@ -262,20 +248,22 @@ class ChordNode(DHTNode):
         return sent_req
 
     @packet_service
-    def reply_find_value(self, recv_req: Request, packet: Packet) -> None:
+    def reply_find_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
+        packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
 
     def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Find the value associated to a given key"""
         key = packet.data["key"]
         try:
-            node = yield from self.find_node(key)
+            node, hops = yield from self.find_node(key)
             sent_req = yield from self.ask_value(node, packet)
             packet = yield from self.wait_resp(sent_req)
         except DHTTimeoutError:
+            hops = -1
             packet.data["value"] = None
 
-        yield from self.reply_find_value(recv_req, packet)
+        yield from self.reply_find_value(recv_req, packet, hops)
 
     @packet_service
     def ask_set_value(self, to: ChordNode, packet: Packet) -> Request:
@@ -285,20 +273,22 @@ class ChordNode(DHTNode):
         return sent_req
 
     @packet_service
-    def reply_store_value(self, recv_req: Request, packet: Packet) -> None:
+    def reply_store_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
+        packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
 
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Store the value to be associated to a given key"""
         key = packet.data["key"]
         try:
-            node = yield from self.find_node(key)
+            node, hops = yield from self.find_node(key)
             sent_req = yield from self.ask_set_value(node, packet)
             packet = yield from self.wait_resp(sent_req)
         except DHTTimeoutError:
+            hops = -1
             self.log(f"unable to store the ({key} {packet.data['value']} pair")
 
-        yield from self.reply_store_value(recv_req, packet)
+        yield from self.reply_store_value(recv_req, packet, hops)
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?

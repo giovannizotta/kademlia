@@ -11,7 +11,7 @@ class Simulator(Loggable):
     keys: Sequence[str]
     plot: bool
     max_value: int = 10**9
-    mean_arrival: float = 1.0
+    mean_arrival: float = 0.1
 
     FIND: ClassVar[str] = "FIND"
     STORE: ClassVar[str] = "STORE"
@@ -62,7 +62,7 @@ class Simulator(Loggable):
             value = self.rbg.get_from_range(self.max_value)
             return client.store_value(ask_to, key, value)
 
-    def simulate(self) -> SimpyProcess:
+    def simulate_join(self) -> SimpyProcess[None]:
         yield from self.build_network()
 
         updates = self.net_manager.prepare_updates()
@@ -72,6 +72,14 @@ class Simulator(Loggable):
 
         if self.plot:
             self.net_manager.print_network(self.net_manager.nodes[10])
+
+    def change_env(self, env:simpy.Environment):
+        self.env = env
+        self.net_manager.change_env(env)
+
+    def simulate(self, env:simpy.Environment) -> SimpyProcess[None]:
+
+        self.change_env(env)
         i = 0
         while True:
             # generate request after random time
@@ -82,3 +90,4 @@ class Simulator(Loggable):
             proc = self.get_client_behaviour(client)
             self.env.process(proc)
             i += 1
+

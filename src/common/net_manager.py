@@ -32,3 +32,8 @@ class NetManager(ABC):
     @abstractmethod
     def prepare_updates(self) -> List[simpy.Process]:
         pass
+
+    def change_env(self, env: simpy.Environment) -> None:
+        self.env = env
+        for node in self.nodes:
+            node.change_env(env)
