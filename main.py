@@ -63,7 +63,7 @@ def main() -> None:
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i+1)
         
-    with open(f'{args.dht}.txt', 'wb') as f:
+    with open(f'{args.dht}.data', 'wb') as f:
         pickle.dump(DataCollector(), f)
 
 
