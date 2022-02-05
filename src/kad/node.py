@@ -41,10 +41,14 @@ class KadNode(DHTNode):
     neigh: Optional[KadNode] = None
     buckets: List[List[KadNode]] = field(init=False, repr=False)
     alpha: int = field(repr=False, default=3)
-    k: int = field(repr=False, default=20)
+    k: int = field(repr=False, default=5)
 
     def __hash__(self):
         return self.id
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.max_timeout = 10
 
     @packet_service
     @process_sender
@@ -138,7 +142,9 @@ class KadNode(DHTNode):
             if len(bucket) < self.k:
                 bucket.append(node)
             else:
-                pass  # TODO: ping least recently seen node and swap with the new one if needed
+                for i in range(len(bucket) - 1):
+                    bucket[i] = bucket[i+1]
+                bucket[-1] = node
 
     def find_node(self, key: int) -> SimpyProcess[Tuple[List[KadNode], int]]:
         self.log(f"Looking for key {key}")

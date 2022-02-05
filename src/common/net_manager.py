@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class NetManager(ABC):
 
-    NODE_SIZE: ClassVar[float] = 1200
+    NODE_SIZE: ClassVar[float] = 3
 
     NODE_COLOR: ClassVar[str] = "#89c2d9"
     SOURCE_COLOR: ClassVar[str] = "#f9844a"
