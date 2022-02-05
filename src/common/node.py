@@ -29,18 +29,18 @@ def packet_service(operation: Callable[..., T]) -> \
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
         before = self.env.now
         with self.in_queue.request() as res:
-            self.datacollector.queue_load[self.id].append((self.env.now, len(self.in_queue.queue)))
+            self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
             self.log("Trying to acquire queue")
             yield res
             self.log("Queue acquired")
             after = self.env.now
-            self.datacollector.packet_wait_time[self.id].append(after - before)
+            self.datacollector.packet_wait_time[self.name].append(after - before)
             ans = operation(self, *args)
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
 
         self.log("Queue released")
-        self.datacollector.queue_load[self.id].append((self.env.now, len(self.in_queue.queue)))
+        self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
         return ans
     return wrapper
 
@@ -49,8 +49,8 @@ def packet_service(operation: Callable[..., T]) -> \
 class DataCollector(metaclass=Singleton):
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
-    queue_load: DefaultDict[int, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
-    packet_wait_time: DefaultDict[int, List[float]] = field(default_factory=lambda: defaultdict(list))
+    queue_load: DefaultDict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
+    packet_wait_time: DefaultDict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
 
     def clear(self):
         self.timed_out_requests = 0
