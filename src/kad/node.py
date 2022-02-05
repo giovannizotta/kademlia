@@ -150,12 +150,15 @@ class KadNode(DHTNode):
         self.log(f"Looking for key {key}")
         contacted = set()
         contacted.add(self)
-        current = self.find_neighbors(key, self.k)
+        current = self.find_neighbors(key)
+        assert len(current) > 0
         found = False
         hop = 0
+        old_current = list()
         while not found:
-            requests = yield from self.ask_neighbors(current, contacted, key, self.k)
+            requests = yield from self.ask_neighbors(current, contacted, key)
             hop += 1
+            assert len(requests) > 0, f"{hop}, {current}, {old_current}, {contacted}"
             packets: List[Packet] = []
             try:
                 yield from self.wait_resps(requests, packets)
@@ -163,8 +166,9 @@ class KadNode(DHTNode):
                 self.log("DHT timeout error", level=logging.WARNING)
 
 
+            old_current = current.copy()
             # print(f"Received {packets}")
-            found = yield from self.update_candidates(packets, key, current)
+            found = yield from self.update_candidates(packets, key, current, contacted)
 
         for node in current:
             self.update_bucket(node)
@@ -172,7 +176,7 @@ class KadNode(DHTNode):
 
     @packet_service
     @process_sender
-    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode]) -> bool:
+    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode], contacted: Set[KadNode]) -> bool:
         current_set = set(current)
         for packet in packets:
             for neigh in packet.data["neighbors"]:
@@ -182,7 +186,7 @@ class KadNode(DHTNode):
         candidates = sorted(current_set, key=lambda x: KadNode._compute_distance(
             x.id, key, self.log_world_size))
         candidates = candidates[:self.k]
-        if candidates != current:
+        if candidates != current and not all(c in contacted for c in candidates):
             found = False
             current.clear()
             for c in candidates:
@@ -191,23 +195,23 @@ class KadNode(DHTNode):
             found = True
         return found 
 
-    def find_neighbors(self, key: int, k: int) -> List[KadNode]:
+    def find_neighbors(self, key: int) -> List[KadNode]:
         nodes = set()
         for neigh in neigh_picker(self, key):
             nodes.add(neigh)
-            if len(nodes) == k:
+            if len(nodes) == self.k:
                 break
-        return sorted(nodes, key=lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))
+        return sorted(nodes, key=lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))[:self.k]
 
     @packet_service
     @process_sender
     def on_find_node_request(self, packet: Packet, recv_req: Request) -> None:
-        neighs = self.find_neighbors(packet.data["key"], packet.data["k"])
+        neighs = self.find_neighbors(packet.data["key"])
         packet.data["neighbors"] = neighs
         self.send_resp(recv_req, packet)
 
     @packet_service
-    def ask_neighbors(self, current: List[KadNode], contacted: Set[KadNode], key: int, k: int) -> List[Request]:
+    def ask_neighbors(self, current: List[KadNode], contacted: Set[KadNode], key: int) -> List[Request]:
         # find nodes to contact
         to_contact = []
         for node in current:
@@ -223,7 +227,6 @@ class KadNode(DHTNode):
         for node in to_contact:
             packet = Packet()
             packet.data["key"] = key
-            packet.data["k"] = k
             sent_req = self.send_req(node.on_find_node_request, packet)
             requests.append(sent_req)
         return requests

@@ -42,7 +42,7 @@ class RandomBatchGenerator(metaclass=Singleton):
     BATCH_SIZE = 10000
     _instance = None
 
-    def __init__(self, seed: int = 42, precision: int = 1):
+    def __init__(self, seed: int = 42, precision: int = 2):
         """Initialize Random Batch Generator
 
         Args:

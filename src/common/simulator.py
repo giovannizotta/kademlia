@@ -78,7 +78,6 @@ class Simulator(Loggable):
         self.net_manager.change_env(env)
 
     def simulate(self, env:simpy.Environment) -> SimpyProcess[None]:
-
         self.change_env(env)
         i = 0
         while True:
@@ -86,7 +85,7 @@ class Simulator(Loggable):
             t = self.get_arrival_time()
             yield self.env.timeout(t)
             client_name = f"client_{i:05d}"
-            client = Client(self.env, client_name)
+            client = Client(self.env, client_name, log_world_size=self.net_manager.nodes[0].log_world_size)
             proc = self.get_client_behaviour(client)
             self.env.process(proc)
             i += 1

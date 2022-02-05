@@ -26,6 +26,11 @@ def parse_args() -> Namespace:
                     help="Logging level")
     ap.add_argument("-p", "--plot", type=bool, default=False,
                     help="Plot the network graph")
+    ap.add_argument("-r", "--rate", type=float, default=0.1,
+                    help="Client arrival rate (lower is faster)")
+    ap.add_argument("-f", "--file", type=str, required=True,
+                    help="File in which to save data")
+
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
     # chord_parser = sp.add_parser("chord", help="Chord")
@@ -52,20 +57,20 @@ def main() -> None:
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(join_env, args.nodes, WORLD_SIZE)
 
-    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot)
+    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate)
     join_env.process(simulator.simulate_join())
     join_env.run()
     
     datacollector = DataCollector()
     datacollector.clear()
+
     run_env = simpy.Environment()
     run_env.process(simulator.simulate(run_env))
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i+1)
         
-    with open(f'{args.dht}.data', 'wb') as f:
+    with open(args.file, 'wb') as f:
         pickle.dump(DataCollector(), f)
-
 
 if __name__ == "__main__":
     main()

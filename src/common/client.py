@@ -5,7 +5,7 @@ from common.utils import *
 class Client(Node):
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.max_timeout = self.max_timeout * 10
+        self.max_timeout = self.max_timeout * 6
         
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
         self.log(f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)

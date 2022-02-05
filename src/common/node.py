@@ -60,7 +60,7 @@ class DataCollector(metaclass=Singleton):
 
 @dataclass
 class Node(Loggable):
-    max_timeout: float = field(repr=False, default=500.0)
+    max_timeout: float = field(repr=False, default=50.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
 
@@ -169,7 +169,7 @@ class Node(Loggable):
         digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
         bindigest = BitArray(hex=digest).bin
         subbin = bindigest[:log_world_size]
-        return int(BitArray(bin=subbin).uint)
+        return BitArray(bin=subbin).uint
 
 
 @dataclass
