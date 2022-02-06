@@ -3,6 +3,7 @@ NODES?=1000
 TIME?=10000
 SEED?=420
 LEVEL?=INFO
+RATE=?0.01
 
 main: help
 
@@ -15,11 +16,11 @@ clean:
 
 run_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --file CHORD.data
+	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --file CHORD.data --rate $(RATE)
 
 run_kad:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --file KAD.data
+	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --file KAD.data --rate $(RATE)
 
 plot_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \

@@ -27,14 +27,11 @@ def packet_service(operation: Callable[..., T]) -> \
     """Wait for the Node's resource, perform the operation and wait a random service time."""
 
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
-        before = self.env.now
         with self.in_queue.request() as res:
             self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
             self.log("Trying to acquire queue")
             yield res
             self.log("Queue acquired")
-            after = self.env.now
-            self.datacollector.packet_wait_time[self.name].append(after - before)
             ans = operation(self, *args)
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)

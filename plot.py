@@ -47,6 +47,7 @@ def get_data(rate=0):
     max_hops = 0
     max_delay = 0
     max_time = 0
+    nodes = 0
     for dht in dhts:
         if rate == 0:
             pick = open(f"{dht}.data", "rb")
@@ -59,11 +60,12 @@ def get_data(rate=0):
         max_time = max(max_time, max(t))
         max_hops = max(max_hops, max(hops))
         max_delay = max(max_delay, np.quantile(delays, 0.99))
-    return data, max_hops, max_delay, max_time
+        nodes = len(data[dht].queue_load)
+    return data, max_hops, max_delay, max_time, nodes
 
 
-def plot_comparison(data, max_hops, ext):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 12))
+def plot_comparison(data, max_hops, ext, nodes):
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 10), constrained_layout=True)
     for dht in dhts:
         print(
             f"{dht} has had {data[dht].timed_out_requests} timeouts and {len(data[dht].client_requests)} successful requests")
@@ -81,28 +83,30 @@ def plot_comparison(data, max_hops, ext):
     ax2.set_ylabel("Estimated probability")
     ax1.legend()
     ax2.legend()
+    fig.suptitle(f"Waiting time and number of hops, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(f"delay_hops_comparison.{ext}",
                 format=ext, bbox_inches="tight")
 
 
-def plot_heatmap(data, max_hops, max_delay, ext):
-    fig, (ax3, ax4) = plt.subplots(2, 1, figsize=(6, 10))
+def plot_heatmap(data, max_hops, max_delay, ext, nodes):
+    fig, (ax3, ax4) = plt.subplots(2, 1, figsize=(6, 8), constrained_layout=True)
 
     for ax, dht in zip((ax3, ax4), dhts):
         #ax3.scatter(DHT_delays, DHT_hops, label=f"{dht}", alpha=0.6)
         DHT_delays, DHT_hops = zip(*data[dht].client_requests)
-        ax.set_title(f"Correlation between delay and hops for {dht}")
+        ax.set_title(f"{dht}")
         ax.set_ylabel("Number of hops")
         ax.set_xlabel("Client waiting time (s)")
         get_heatmap(ax, DHT_delays, DHT_hops, max_delay, max_hops)
 
+    fig.suptitle(f"Correlation between delay and number of hops, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(f"heatmap.{ext}", format=ext, bbox_inches="tight")
 
 
 def plot_single_node(data: Dict[str, DataCollector], ext: str):
     node = "node_00047"
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 8))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 8), constrained_layout=True)
     for dht in dhts:
 
         previous_load = 0
@@ -129,6 +133,7 @@ def plot_single_node(data: Dict[str, DataCollector], ext: str):
 
     ax1.legend()
     # ax2.legend()
+    fig.suptitle(f"Stats about {node}", va="bottom", ha="center")
     plt.savefig(f"node_load.{ext}", format=ext, bbox_inches="tight")
 
 
@@ -157,8 +162,8 @@ def get_load_dist(data, dht, time):
 
     return loads
 
-def plot_load_distrib(data: Dict[str, DataCollector], ext, max_time: float):
-    fig, axes = plt.subplots(4, 2, figsize=(10, 14), sharex=True, sharey=True)
+def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: float):
+    fig, axes = plt.subplots(4, 2, figsize=(10, 16), sharex=True, sharey=True)
     for ax, time in zip(chain(*axes), np.linspace(1, max_time, num=9)[1:]):
         time = round(time)
         for dht in dhts:
@@ -171,13 +176,14 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, max_time: float):
         ax.set_title(f"Until {time} (s)")
         ax.legend()
 
-    fig.suptitle("Average node load distribution")
+    fig.suptitle(f"Average node load distribution, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(f"load_distr.{ext}", format=ext)
 
 def plot_arrival_comparison(ext):
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
+    nodes = 0
     for ax, rate in zip(chain(*axes), (0.01, 0.02, 0.05, 0.1)):
-        data, _, _, max_time = get_data(rate=rate)
+        data, _, _, max_time, nodes = get_data(rate=rate)
         time = round(max_time)
         for dht in dhts:
             loads = get_load_dist(data, dht, time)
@@ -189,22 +195,34 @@ def plot_arrival_comparison(ext):
         ax.set_title(f"Arrival rate: {rate}")
         ax.legend()
 
-    fig.suptitle("Average load distribution with different arrival rates")
+    fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(f"arrivals.{ext}", format=ext)
 
+def plot_packets_waittime(data, ext, nodes):
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5), constrained_layout=True)
+    for dht in dhts:
+        times = []
+        for waittime in data[dht].packet_wait_time.values():
+            times.extend(waittime)
+        ax.hist(times, bins=20, alpha=0.6, label=f"{dht}", density=True)
+    ax.set_xlabel("Waiting time")
+    ax.set_ylabel("Density")
+    ax.set_title(f"Queue waiting time for packets, {nodes} nodes")
+    ax.legend()
+
+    plt.savefig(f"packets.{ext}", format=ext)
 
 def main():
     args = parse_args()
     if not args.arrivals:
-        data, max_hops, max_delay, max_time= get_data()
-        plot_comparison(data, max_hops, args.ext)
+        data, max_hops, max_delay, max_time, nodes = get_data()
+        plot_comparison(data, max_hops, args.ext, nodes)
         plt.clf()
-        plot_heatmap(data, max_hops, max_delay, args.ext)
+        plot_heatmap(data, max_hops, max_delay, args.ext, nodes)
         plt.clf()
-        plot_single_node(data, args.ext)
+        plot_load_distrib(data, args.ext, nodes, max_time)
         plt.clf()
-        plot_load_distrib(data, args.ext, max_time)
-        plt.clf()
+        plot_packets_waittime(data, args.ext, nodes)
     else:
         plot_arrival_comparison(args.ext)
             
