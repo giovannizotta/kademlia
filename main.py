@@ -6,7 +6,7 @@ from kad.net_manager import KadNetManager
 from chord.net_manager import ChordNetManager
 from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
-import logging, pickle
+import logging, json
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
@@ -68,9 +68,9 @@ def main() -> None:
     run_env.process(simulator.simulate(run_env))
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i+1)
-        
-    with open(args.file, 'wb') as f:
-        pickle.dump(DataCollector(), f)
+
+    with open(args.file, 'w', encoding='utf8') as f:
+        json.dump(datacollector.to_dict(), f, separators=(',', ':'))
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-import pickle
+import json
 import matplotlib.pyplot as plt
 import numpy as np
 from common.node import DHTNode, DataCollector
@@ -50,10 +50,12 @@ def get_data(rate=0):
     nodes = 0
     for dht in dhts:
         if rate == 0:
-            pick = open(f"{dht}.data", "rb")
+            pick = open(f"{dht}.json", "r", encoding='utf8')
         else:
-            pick = open(f"{dht}_{rate}.data", "rb")
-        dht_data: DataCollector = pickle.load(pick)
+            pick = open(f"{dht}_{rate}.json", "r", encoding='utf8')
+        dct = json.load(pick)
+        # print(dct)
+        dht_data: DataCollector = DataCollector.from_dict(dct)
         data[dht] = dht_data
         delays, hops = zip(*data[dht].client_requests)
         t, _ = zip(*list(data[dht].queue_load.values())[0])

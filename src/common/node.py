@@ -1,5 +1,7 @@
 from __future__ import annotations
 from functools import reduce
+
+from dataclasses_json import dataclass_json
 from common.utils import *
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -41,13 +43,13 @@ def packet_service(operation: Callable[..., T]) -> \
         return ans
     return wrapper
 
-
+@dataclass_json
 @dataclass
 class DataCollector(metaclass=Singleton):
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
-    queue_load: DefaultDict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
-    packet_wait_time: DefaultDict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
+    queue_load: Dict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
+    packet_wait_time: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
 
     def clear(self):
         self.timed_out_requests = 0
