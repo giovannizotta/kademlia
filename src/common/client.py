@@ -17,6 +17,9 @@ class Client(Node):
             packet = yield from self.wait_resp(sent_req)
             value = packet.data["value"]
             hops = packet.data["hops"]
+            if hops == -1:
+                # the node responded but the process timed out
+                raise DHTTimeoutError()
             self.log(f"Received value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
             self.datacollector.client_requests.append((after - before, hops))
@@ -33,8 +36,11 @@ class Client(Node):
         sent_req = self.send_req(ask_to.store_value, packet)
         try:
             packet = yield from self.wait_resp(sent_req)
-            self.log(f"Stored value: DHT[{key}] = {value}", level=logging.INFO)
             hops = packet.data["hops"]
+            if hops == -1:
+                # the node responded but the process timed out
+                raise DHTTimeoutError()
+            self.log(f"Stored value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
             self.datacollector.client_requests.append((after - before, hops))
         except DHTTimeoutError:
