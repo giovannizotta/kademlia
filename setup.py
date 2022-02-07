@@ -83,7 +83,6 @@ setup(
         'matplotlib>=3.5.1',
         'pydot>=1.4.2',
         'tqdm>=4.62.3'
-        'dataclasses-json>=0.5.6'
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

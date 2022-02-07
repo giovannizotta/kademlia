@@ -43,19 +43,23 @@ def packet_service(operation: Callable[..., T]) -> \
         return ans
     return wrapper
 
-@dataclass_json
 @dataclass
 class DataCollector:
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
     queue_load: Dict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
-    packet_wait_time: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
 
     def clear(self):
         self.timed_out_requests = 0
         self.client_requests.clear()
         self.queue_load.clear()
-        self.packet_wait_time.clear()
+    
+    def to_dict(self):
+        return self.__dict__
+
+    @classmethod
+    def from_dict(self, dct):
+        return DataCollector(**dct)
 
 @dataclass
 class Node(Loggable):
