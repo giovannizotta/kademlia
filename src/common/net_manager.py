@@ -1,12 +1,18 @@
 from abc import ABC, abstractmethod
-from common.node import DHTNode
+from common.node import DHTNode, DataCollector
 from common.utils import *
 import simpy
 import networkx as nx
 import matplotlib.pyplot as plt
+from dataclasses import dataclass, field
 
-
+@dataclass
 class NetManager(ABC):
+    env: simpy.Environment
+    n_nodes: int
+    datacollector: DataCollector
+    log_world_size: int
+    nodes: Sequence[DHTNode] = field(init=False)
 
     NODE_SIZE: ClassVar[float] = 3
 
@@ -14,11 +20,7 @@ class NetManager(ABC):
     SOURCE_COLOR: ClassVar[str] = "#f9844a"
     TARGETS_COLOR: ClassVar[str] = "#277da1"
 
-    def __init__(self, env: simpy.Environment, n_nodes: int, log_world_size: int) -> None:
-        self.nodes: Sequence[DHTNode] = list()
-        self.env = env
-        self.n_nodes = n_nodes
-        self.log_world_size = log_world_size
+    def __post_init__(self) -> None:
         self.create_nodes()
 
     @abstractmethod

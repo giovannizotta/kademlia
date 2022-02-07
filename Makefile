@@ -9,10 +9,14 @@ main: help
 
 clean:
 	@rm -f logs.log
-	@rm -r chord.pdf
-	@rm -r kad.pdf
-	@rm -r kad.png
-	@rm -r chord.png
+	@rm -f chord.pdf
+	@rm -f kad.pdf
+	@rm -f kad.png
+	@rm -f chord.png
+	@rm -f *.png
+	@rm -f *.pdf
+	@rm -f *.json
+	@rm -f *.log
 
 run_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \

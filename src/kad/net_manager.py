@@ -66,11 +66,11 @@ class Trie(nx.DiGraph):
                 stack.append(child)
         return new_trie
 
-
+@dataclass
 class KadNetManager(NetManager):
 
-    def __init__(self, env: simpy.Environment, n_nodes: int, log_world_size: int) -> None:
-        super().__init__(env, n_nodes, log_world_size)
+    def __post_init__(self) -> None:
+        super().__post_init__()
         self.trie = Trie()
         for node in self.nodes:
             self.trie.add(get_key(node.id))
@@ -83,7 +83,7 @@ class KadNetManager(NetManager):
         self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                KadNode(self.env, f"node_{i:05d}", log_world_size=self.log_world_size))
+                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size))
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])
@@ -93,7 +93,7 @@ class KadNetManager(NetManager):
 
         # add buckets edges
         buckets_edges = []
-    
+
         color_map = {node: NetManager.NODE_COLOR for node in self.trie.nodes}
         a_pfx = self.trie.find_prefix(get_key(node.id))
         color_map[a_pfx] = NetManager.SOURCE_COLOR

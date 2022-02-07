@@ -51,17 +51,18 @@ def main() -> None:
     # init random seed
     RBG(seed=args.seed)
     join_env = simpy.Environment()
+    datacollector = DataCollector()
+    
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
-        net_manager = KadNetManager(join_env, args.nodes, WORLD_SIZE)
+        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
     elif args.dht == Simulator.CHORD:
-        net_manager = ChordNetManager(join_env, args.nodes, WORLD_SIZE)
+        net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
 
     simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate)
     join_env.process(simulator.simulate_join())
     join_env.run()
     
-    datacollector = DataCollector()
     datacollector.clear()
 
     run_env = simpy.Environment()

@@ -45,7 +45,7 @@ def packet_service(operation: Callable[..., T]) -> \
 
 @dataclass_json
 @dataclass
-class DataCollector(metaclass=Singleton):
+class DataCollector:
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
     queue_load: Dict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
@@ -59,6 +59,7 @@ class DataCollector(metaclass=Singleton):
 
 @dataclass
 class Node(Loggable):
+    datacollector: DataCollector = field(repr=False)
     max_timeout: float = field(repr=False, default=50.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
@@ -67,7 +68,6 @@ class Node(Loggable):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.id = Node._compute_key(self.name, self.log_world_size)
-        self.datacollector = DataCollector()
 
     def new_req(self) -> Request:
         return Request(self.env.event())
