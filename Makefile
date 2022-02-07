@@ -37,10 +37,10 @@ plot_kad:
 plots:
 	@echo "Running Chord with $(NODES) nodes for $(TIME) seconds"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --file CHORD.json
+	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --rate $(RATE) --file CHORD.json
 	@echo "Running Kad with $(NODES) nodes for $(TIME) seconds"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --file KAD.json
+	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --rate $(RATE) --file KAD.json
 	@python3 plot.py
 	@echo "Plots completed."
 
