@@ -41,7 +41,7 @@ plot:
 
 plots: run_kad run_chord plot
 
-plot_arrival_rate:
+plot_arrival_rate: prepare
 	@for rate in 0.01 0.02 0.05 0.1; do \
 		echo "Rate: $$rate" ;\
 		echo "Running Kad";\
