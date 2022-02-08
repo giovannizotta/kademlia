@@ -45,8 +45,6 @@ class ChordNetManager(NetManager):
         plt.savefig("chord.pdf", format="pdf", bbox_inches=0, pad_inches=0)
         plt.show()
 
-    def prepare_updates(self) -> List[simpy.Process]:
-        updates = []
+    def prepare_updates(self) -> SimpyProcess[None]:
         for node in self.nodes:
-            updates.append(self.env.process(node.update()))
-        return updates
+            yield self.env.process(node.update())

@@ -129,5 +129,5 @@ class KadNetManager(NetManager):
         plt.savefig("kad.pdf", format="pdf", bbox_inches=0, pad_inches=0)
         plt.show()
 
-    def prepare_updates(self) -> List[simpy.Process]:
-        return []
+    def prepare_updates(self) -> SimpyProcess[None]:
+        yield from []

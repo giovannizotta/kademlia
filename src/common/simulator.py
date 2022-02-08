@@ -65,9 +65,9 @@ class Simulator(Loggable):
     def simulate_join(self) -> SimpyProcess[None]:
         yield from self.build_network()
 
-        updates = self.net_manager.prepare_updates()
+        yield from self.net_manager.prepare_updates()
 
-        yield simpy.AllOf(self.env, updates)
+        # yield simpy.AllOf(self.env, updates)
         self.log(f"Updates are done for all nodes.", level=logging.INFO)
 
         if self.plot:

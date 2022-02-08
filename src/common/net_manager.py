@@ -14,7 +14,7 @@ class NetManager(ABC):
     log_world_size: int
     nodes: Sequence[DHTNode] = field(init=False)
 
-    NODE_SIZE: ClassVar[float] = 3
+    NODE_SIZE: ClassVar[float] = 300
 
     NODE_COLOR: ClassVar[str] = "#89c2d9"
     SOURCE_COLOR: ClassVar[str] = "#f9844a"
@@ -32,7 +32,7 @@ class NetManager(ABC):
         pass
 
     @abstractmethod
-    def prepare_updates(self) -> List[simpy.Process]:
+    def prepare_updates(self) -> SimpyProcess[None]:
         pass
 
     def change_env(self, env: simpy.Environment) -> None:
