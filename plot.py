@@ -154,7 +154,7 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: floa
     #fig.suptitle(f"Average node load distribution, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"load_distr_{nodes}.{ext}"), format=ext)
 
-def plot_arrival_comparison(inputdir, ext, outputdir):
+def plot_arrival_load_comparison(inputdir, ext, outputdir):
     fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
     nodes = 0
     for ax, rate in zip(chain(*axes), (0.01, 0.02, 0.05, 0.1)):
@@ -167,11 +167,28 @@ def plot_arrival_comparison(inputdir, ext, outputdir):
             ax.hist(loads, bins=10, alpha=0.6, label=labl, density=True)
         ax.set_xlabel("Average queue load")
         ax.set_ylabel("Density")
-        ax.set_title(f"Arrival rate: {rate}")
+        ax.set_title(f"Inter arrival time: {rate}")
         ax.legend()
 
     #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
-    plt.savefig(os.path.join(outputdir, f"arrivals_{nodes}.{ext}"), format=ext)
+    plt.savefig(os.path.join(outputdir, f"arrivals_load_{nodes}.{ext}"), format=ext)
+
+def plot_arrival_delay_comparison(inputdir, ext, outputdir):
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
+    nodes = 0
+    for ax, rate in zip(chain(*axes), (0.01, 0.02, 0.05, 0.1)):
+        data, _, _, _, nodes = get_data(inputdir, rate=rate)
+        for dht in dhts:
+            DHT_delays, _ = zip(*data[dht].client_requests)
+            ax.hist(DHT_delays, bins=30,
+                     label=f"{dht}", alpha=0.6, density=True)
+
+        ax.set_title(f"Inter arrival time: {rate}")
+        ax.set_xlabel("Client waiting time (s)")
+        ax.set_ylabel("Density")
+        ax.legend()
+    #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
+    plt.savefig(os.path.join(outputdir, f"arrivals_delay_{nodes}.{ext}"), format=ext)
 
 def main():
     args = parse_args()
@@ -184,8 +201,10 @@ def main():
         plot_load_distrib(data, args.ext, nodes, max_time, args.output)
         plt.clf()
     else:
-        plot_arrival_comparison(args.input, args.ext, args.output)
-            
+        plot_arrival_load_comparison(args.input, args.ext, args.output)
+        plt.clf()
+        plot_arrival_delay_comparison(args.input, args.ext, args.output)
+        plt.clf()
 
 
 if __name__ == "__main__":
