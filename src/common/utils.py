@@ -12,12 +12,15 @@ from dataclasses import dataclass, field
 # generic from hashable type
 HashableT = TypeVar("HashableT", bound=Hashable)
 # return type for simpy processes
-T = TypeVar('T')
+T = TypeVar('T', covariant=True)
+C = TypeVar('C', contravariant=True)
 SimpyProcess = Generator[Union[simpy.Event,
                                simpy.Process], simpy.events.ConditionValue, T]
 
 Request = NewType("Request", simpy.Event)
 
+
+Method = Callable[..., T]
 
 class DHTTimeoutError(Exception):
     pass

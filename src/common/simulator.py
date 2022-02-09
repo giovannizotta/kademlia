@@ -73,7 +73,7 @@ class Simulator(Loggable):
         if self.plot:
             self.net_manager.print_network(self.net_manager.nodes[10])
 
-    def change_env(self, env: simpy.Environment):
+    def change_env(self, env: simpy.Environment) -> None:
         self.env = env
         self.net_manager.change_env(env)
 

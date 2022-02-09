@@ -1,7 +1,4 @@
 from __future__ import annotations
-from functools import reduce
-
-from dataclasses_json import dataclass_json
 from common.utils import *
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -23,14 +20,15 @@ class Packet():
         self.id = Packet.instances
         Packet.instances += 1
 
-
-def packet_service(operation: Callable[..., T]) -> \
-        Callable[..., SimpyProcess[T]]:
+def packet_service(
+    operation: Method[T]
+) -> Method[SimpyProcess[T]]:
     """Wait for the Node's resource, perform the operation and wait a random service time."""
 
     def wrapper(self: DHTNode, *args: Any) -> SimpyProcess[T]:
         with self.in_queue.request() as res:
-            self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
+            self.datacollector.queue_load[self.name].append(
+                (self.env.now, len(self.in_queue.queue)))
             self.log("Trying to acquire queue")
             yield res
             self.log("Queue acquired")
@@ -39,27 +37,31 @@ def packet_service(operation: Callable[..., T]) -> \
             yield self.env.timeout(service_time)
 
         self.log("Queue released")
-        self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
+        self.datacollector.queue_load[self.name].append(
+            (self.env.now, len(self.in_queue.queue)))
         return ans
     return wrapper
+
 
 @dataclass
 class DataCollector:
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
-    queue_load: Dict[str, List[Tuple[float, int]]] = field(default_factory=lambda: defaultdict(list))
+    queue_load: Dict[str, List[Tuple[float, int]]] = field(
+        default_factory=lambda: defaultdict(list))
 
     def clear(self):
         self.timed_out_requests = 0
         self.client_requests.clear()
         self.queue_load.clear()
-    
+
     def to_dict(self):
         return self.__dict__
 
     @classmethod
     def from_dict(self, dct):
         return DataCollector(**dct)
+
 
 @dataclass
 class Node(Loggable):
@@ -123,17 +125,17 @@ class Node(Loggable):
         Returns:
             List[Packet]: list of packets received
         """
-        sent_req = reduce(lambda x, y: x & y, sent_reqs)
-        self.log(f"sent requests: {sent_req}")
+        sent_req = self.env.all_of(sent_reqs)
         timeout = self.env.timeout(self.max_timeout)
-        wait_event = timeout | sent_req
+        wait_event = self.env.any_of((timeout, sent_req))
         ans = yield wait_event
         timeout_found = False
         packets_received = 0
         for event, ret_val in ans.items():
             if event is timeout:
                 timeout_found = True
-            elif isinstance(ret_val, Packet):
+            else:
+                assert isinstance(ret_val, Packet)
                 packets.append(ret_val)
                 packets_received += 1
         self.log(f"received {packets_received}/{len(sent_reqs)} response")
@@ -144,8 +146,8 @@ class Node(Loggable):
     def wait_resp(self, sent_req: Request) -> SimpyProcess[Packet]:
         """Wait for the response of the recipient (see wait_resps)"""
         ans: List[Packet] = []
-        yield from self.wait_resps((sent_req,), ans)
-        return ans[0]
+        yield from self.wait_resps([sent_req], ans)
+        return ans.pop()
 
     def _resp(self, recv_req: Request, packet: Packet) -> SimpyProcess[None]:
         """Trigger the event of reception after waiting for the transmission delay
@@ -188,7 +190,7 @@ class DHTNode(Node):
         self.ht = dict()
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
-    def change_env(self, env: simpy.Environment):
+    def change_env(self, env: simpy.Environment) -> None:
         self.env = env
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
