@@ -44,20 +44,23 @@ class RandomBatchGenerator(metaclass=Singleton):
 
     The random samples are precomputed in batch and refreshed on demand.
     """
+    _exponentials: Dict[int, Iterator[float]] = field(repr=False, init=False, default_factory=dict)
+    _choices: Dict[int, Iterator[int]] = field(repr=False, init=False, default_factory=dict)
+    _rng: np.random.Generator = field(init=False, repr=False)
+    seed: int = 420
+    precision: int = 2
     BATCH_SIZE = 10000
     _instance = None
 
-    def __init__(self, seed: int = 42, precision: int = 2):
+    def __post_init__(self):
         """Initialize Random Batch Generator
 
         Args:
-            seed (int, optional): Random seed to use. Defaults to 42.
-            precision (int, optional): Decimal precision of distributions' parameters. Defaults to 1.
+            seed (int, optional): Random seed to use. Defaults to 420.
+            precision (int, optional): Decimal precision of distributions' parameters. Defaults to 2.
         """
-        self._exponentials: Dict[int, Iterator[float]] = {}
-        self._choices: Dict[int, Iterator[int]] = {}
-        self._rng: np.random.Generator = np.random.default_rng(seed)
-        self.precision: int = 10 ** precision
+        self.precision = 10 ** self.precision
+        self._rng = np.random.default_rng(self.seed)
 
     def get_exponential(self, mean: float) -> float:
         """Draw a number from an exponential with the given mean"""

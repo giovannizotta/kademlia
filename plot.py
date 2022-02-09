@@ -138,8 +138,8 @@ def get_load_dist(data, dht, time):
     return loads
 
 def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: float, outputdir: str):
-    fig, axes = plt.subplots(1, 4, figsize=(12, 3), sharex=True, sharey=True)
-    for ax, time in zip(axes, np.linspace(1, max_time, num=5)[1:]):
+    fig, axes = plt.subplots(2, 2, figsize=(6, 6), sharex=True, sharey=True)
+    for ax, time in zip(chain(*axes), np.linspace(1, max_time, num=5)[1:]):
         time = round(time)
         for dht in dhts:
             loads = get_load_dist(data, dht, time)
