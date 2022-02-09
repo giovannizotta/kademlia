@@ -57,7 +57,5 @@ plot_arrival_rate: prepare
 	@python3 plot.py --arrivals
 	@echo "Arrivals plot completed."
 
-asd:
-
 help: 
 	@python3 main.py --help

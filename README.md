@@ -19,9 +19,16 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
     pip install -e kademlia
     ```
 
-* Try it out:
+* Try it out! To run a simulation for both DHTs you can use the following command:
     ```[bash]
-    python main.py
+    make plots NODES=100 TIME=1000 RATE=0.1
+    ```
+
+* The plots will end up in res/plots. The Makefile offers various commands such as:
+    ```[bash]
+    make plots
+    make plot_network
+    make plot_arrival_rate
     ```
 
 # Plots
