@@ -41,7 +41,7 @@ def get_heatmap(ax, delays, hops, max_delay, max_hops):
     im_ratio = len(im) / len(im[0])
     im = np.array(im)
     im = ax.imshow(im, origin="lower")
-    ticks = [f"{tick:.1f}" for tick in bins][:-1]
+    ticks = [f"{tick:.0f}" for tick in bins][:-1]
     ax.set_xticks(np.arange(len(ticks)), labels=ticks)
     # plt.show()
     cbar = ax.figure.colorbar(
@@ -74,7 +74,7 @@ def get_data(inputdir, rate=0):
 
 
 def plot_comparison(data, max_hops, ext, nodes, outputdir):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 10), constrained_layout=True)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     for dht in dhts:
         print(
             f"{dht} has had {data[dht].timed_out_requests} timeouts and {len(data[dht].client_requests)} successful requests")
@@ -85,7 +85,7 @@ def plot_comparison(data, max_hops, ext, nodes, outputdir):
                  label=f"{dht}", alpha=0.6, density=True)
 
     ax1.set_title("Client request delays")
-    ax2.set_title("Number of hops needed to fulfill a client request")
+    ax2.set_title("Number of hops")
     ax1.set_xlabel("Client waiting time (s)")
     ax2.set_xlabel("Number of hops")
     ax1.set_ylabel("Estimated probability")
@@ -138,8 +138,8 @@ def get_load_dist(data, dht, time):
     return loads
 
 def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: float, outputdir: str):
-    fig, axes = plt.subplots(4, 2, figsize=(10, 16), sharex=True, sharey=True)
-    for ax, time in zip(chain(*axes), np.linspace(1, max_time, num=9)[1:]):
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3), sharex=True, sharey=True)
+    for ax, time in zip(axes, np.linspace(1, max_time, num=5)[1:]):
         time = round(time)
         for dht in dhts:
             loads = get_load_dist(data, dht, time)
@@ -152,38 +152,46 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: floa
         ax.legend()
 
     #fig.suptitle(f"Average node load distribution, {nodes} nodes", va="bottom", ha="center")
-    plt.savefig(os.path.join(outputdir, f"load_distr_{nodes}.{ext}"), format=ext)
+    plt.savefig(os.path.join(outputdir, f"load_distr_{nodes}.{ext}"), format=ext, bbox_inches="tight")
 
 def plot_arrival_load_comparison(inputdir, ext, outputdir):
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
-    for ax, rate in zip(chain(*axes), (0.01, 0.02, 0.05, 0.1)):
+    for ax, rate in zip(axes, reversed([0.01, 0.02, 0.05, 0.1])):
         data, _, _, max_time, nodes = get_data(inputdir, rate=rate)
         time = round(max_time)
+        timeouts = dict()
         for dht in dhts:
             loads = get_load_dist(data, dht, time)
             total_reqs = data[dht].timed_out_requests + len(data[dht].client_requests)
-            labl = f"{dht}, timeouts: {data[dht].timed_out_requests} / {total_reqs}"
+            timeouts[dht] = 100 * (data[dht].timed_out_requests / total_reqs)
+            labl = f"{dht}"
             ax.hist(loads, bins=10, alpha=0.6, label=labl, density=True)
+        title = [f"{dht}: {timeouts[dht]:4.1f}%" for dht in dhts]
         ax.set_xlabel("Average queue load")
         ax.set_ylabel("Density")
-        ax.set_title(f"Inter arrival time: {rate}")
+        ax.set_title(f"Arrival rate: {1/rate:.1f}\nTO: {', '.join(title)}", fontsize=10)
         ax.legend()
 
     #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"arrivals_load_{nodes}.{ext}"), format=ext)
 
 def plot_arrival_delay_comparison(inputdir, ext, outputdir):
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
-    for ax, rate in zip(chain(*axes), (0.01, 0.02, 0.05, 0.1)):
+    for ax, rate in zip(axes, reversed([0.01, 0.02, 0.05, 0.1])):
         data, _, _, _, nodes = get_data(inputdir, rate=rate)
+        timeouts = dict()
         for dht in dhts:
             DHT_delays, _ = zip(*data[dht].client_requests)
+            total_reqs = data[dht].timed_out_requests + len(data[dht].client_requests)
+            timeouts[dht] = 100 * (data[dht].timed_out_requests / total_reqs)
+            labl = f"{dht}"
             ax.hist(DHT_delays, bins=30,
-                     label=f"{dht}", alpha=0.6, density=True)
+                     label=labl, alpha=0.6, density=True)
 
-        ax.set_title(f"Inter arrival time: {rate}")
+        title = [f"{dht} {timeouts[dht]:4.1f}%" for dht in dhts]
+        ax.set_title(f"Arrival rate: {1/rate:.1f}\nTO: {', '.join(title)}", fontsize=10)
         ax.set_xlabel("Client waiting time (s)")
         ax.set_ylabel("Density")
         ax.legend()
@@ -194,15 +202,20 @@ def main():
     args = parse_args()
     if not args.arrivals:
         data, max_hops, max_delay, max_time, nodes = get_data(args.input)
+        print("Plotting delay comparison")
         plot_comparison(data, max_hops, args.ext, nodes, args.output)
         plt.clf()
+        print("Plotting heatmap")
         plot_heatmap(data, max_hops, max_delay, args.ext, nodes, args.output)
         plt.clf()
+        print("Plotting load distribution")
         plot_load_distrib(data, args.ext, nodes, max_time, args.output)
         plt.clf()
     else:
+        print("Plotting arrival load comparison")
         plot_arrival_load_comparison(args.input, args.ext, args.output)
         plt.clf()
+        print("Plotting arrival delay comparison")
         plot_arrival_delay_comparison(args.input, args.ext, args.output)
         plt.clf()
 

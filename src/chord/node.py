@@ -55,7 +55,6 @@ class ChordNode(DHTNode):
             f"asked for best node for key {key}, it's {best_node if not found else 'me'}")
         return best_node, found
 
-    @packet_service
     def _get_best_node_and_forward(self, key: int, packet: Packet, ask_to: Optional[ChordNode]) -> \
             Tuple[ChordNode, bool, Optional[Request]]:
         """Iteratively search for the best node for a given key. 
@@ -127,7 +126,7 @@ class ChordNode(DHTNode):
         """
         self.log(f"start looking for node holding {key}")
         packet = Packet(data=dict(key=key))
-        best_node, found, sent_req = yield from self._get_best_node_and_forward(key, packet, ask_to)
+        best_node, found, sent_req = self._get_best_node_and_forward(key, packet, ask_to)
         hops = 0
         while not found:
             hops += 1
@@ -182,13 +181,11 @@ class ChordNode(DHTNode):
         succ: Optional[ChordNode] = packet.data["succ"]
         return succ
 
-    @packet_service
     def ask_successor(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for it's successor")
         sent_req = self.send_req(to.get_successor, packet)
         return sent_req
 
-    @packet_service
     def _ask_set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> Tuple[Request, Request]:
         self.log(f"asking {pred} to set me as its successor")
         self.log(f"asking {succ} to set me as its predecessor")
@@ -211,14 +208,14 @@ class ChordNode(DHTNode):
         node, hops = yield from self.find_node(self.id, ask_to=to)
         # ask node its successor
         packet = Packet()
-        sent_req = yield from self.ask_successor(node, packet)
+        sent_req = self.ask_successor(node, packet)
         # wait for a response
         packet = yield from self.wait_resp(sent_req)
         # serve response
         node_succ = yield from self._read_succ_resp(packet)
 
         # ask them to put me in the ring
-        sent_req_pred, sent_req_succ = yield from self._ask_set_pred_succ(node, node_succ)
+        sent_req_pred, sent_req_succ = self._ask_set_pred_succ(node, node_succ)
         # wait for both answers
         yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
         # I do my rewiring
@@ -231,7 +228,6 @@ class ChordNode(DHTNode):
         ws: int = 2**log_world_size
         return dst % ws
 
-    @packet_service
     def _update_ft(self, pos: int, node: ChordNode) -> None:
         self.ft[pos] = node
 
@@ -239,15 +235,13 @@ class ChordNode(DHTNode):
         for x in range(self.log_world_size):
             key = (self.id + 2**x) % (2 ** self.log_world_size)
             node, hops = yield from self.find_node(key)
-            yield from self._update_ft(x, node)
+            self._update_ft(x, node)
 
-    @packet_service
     def ask_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for the key {packet.data['key']}")
         sent_req = self.send_req(to.get_value, packet)
         return sent_req
 
-    @packet_service
     def reply_find_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
         packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
@@ -257,22 +251,20 @@ class ChordNode(DHTNode):
         key = packet.data["key"]
         try:
             node, hops = yield from self.find_node(key)
-            sent_req = yield from self.ask_value(node, packet)
+            sent_req = self.ask_value(node, packet)
             packet = yield from self.wait_resp(sent_req)
         except DHTTimeoutError:
             hops = -1
             packet.data["value"] = None
 
-        yield from self.reply_find_value(recv_req, packet, hops)
+        self.reply_find_value(recv_req, packet, hops)
 
-    @packet_service
     def ask_set_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(
             f"asking {to} to set the value {packet.data['value']} for the key {packet.data['key']}")
         sent_req = self.send_req(to.set_value, packet)
         return sent_req
 
-    @packet_service
     def reply_store_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
         packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
@@ -282,13 +274,13 @@ class ChordNode(DHTNode):
         key = packet.data["key"]
         try:
             node, hops = yield from self.find_node(key)
-            sent_req = yield from self.ask_set_value(node, packet)
+            sent_req = self.ask_set_value(node, packet)
             packet = yield from self.wait_resp(sent_req)
         except DHTTimeoutError:
             hops = -1
             self.log(f"unable to store the ({key} {packet.data['value']} pair")
 
-        yield from self.reply_store_value(recv_req, packet, hops)
+        self.reply_store_value(recv_req, packet, hops)
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?

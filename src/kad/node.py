@@ -60,13 +60,11 @@ class KadNode(DHTNode):
     def set_value(self, packet: Packet, recv_req: Request) -> None:
         super().set_value(packet, recv_req)
 
-    @packet_service
     def reply_find_value(self, recv_req: Request, packets: List[Packet], hops: int) -> None:
         value = decide_value(packets)
         packet = Packet(data=dict(value=value, hops=hops))
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def ask_value(self, to: List[KadNode], packet: Packet) -> List[Request]:
         requests = []
         for node in to:
@@ -80,17 +78,17 @@ class KadNode(DHTNode):
         key = packet.data["key"]
         packets = []
         nodes, hops = yield from self.find_node(key)
+
         try:
-            requests = yield from self.ask_value(nodes, packet)
+            requests = self.ask_value(nodes, packet)
             yield from self.wait_resps(requests, packets)
         except DHTTimeoutError:
             if not packets:
                 hops = -1
                 packet.data["value"] = None
         
-        yield from self.reply_find_value(recv_req, packets, hops)
+        self.reply_find_value(recv_req, packets, hops)
 
-    @packet_service
     def ask_set_value(self, to: List[KadNode], packet: Packet) -> List[Request]:
         requests = []
         for node in to:
@@ -100,7 +98,6 @@ class KadNode(DHTNode):
             requests.append(sent_req)
         return requests
 
-    @packet_service
     def reply_store_value(self, recv_req: Request, hops:int) -> None:
         packet = Packet(data=dict(hops=hops))
         self.send_resp(recv_req, packet)
@@ -108,16 +105,15 @@ class KadNode(DHTNode):
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
         """Store the value to be associated to a given key"""
         key = packet.data["key"]
-        packets = []
+        nodes, hops = yield from self.find_node(key)
         try:
-            nodes, hops = yield from self.find_node(key)
-            requests = yield from self.ask_set_value(nodes, packet)
-            yield from self.wait_resps(requests, packets)
+            requests = self.ask_set_value(nodes, packet)
+            yield from self.wait_resps(requests, [])
         except DHTTimeoutError:
             hops = -1
             packet.data["value"] = None
         
-        yield from self.reply_store_value(recv_req, hops)
+        self.reply_store_value(recv_req, hops)
 
     def __post_init__(self):
         super().__post_init__()
@@ -156,7 +152,7 @@ class KadNode(DHTNode):
         hop = 0
         old_current = list()
         while not found:
-            requests = yield from self.ask_neighbors(current, contacted, key)
+            requests = self.ask_neighbors(current, contacted, key)
             hop += 1
             assert len(requests) > 0, f"{hop}, {current}, {old_current}, {contacted}"
             packets: List[Packet] = []
@@ -210,7 +206,6 @@ class KadNode(DHTNode):
         packet.data["neighbors"] = neighs
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def ask_neighbors(self, current: List[KadNode], contacted: Set[KadNode], key: int) -> List[Request]:
         # find nodes to contact
         to_contact = []
