@@ -88,7 +88,7 @@ class KadNetManager(NetManager):
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])
 
-    def print_network(self, node: DHTNode) -> None:
+    def print_network(self, node: DHTNode, ext: str) -> None:
         node = cast(KadNode, node)
 
         # add buckets edges
@@ -126,7 +126,7 @@ class KadNetManager(NetManager):
         nx.draw_networkx_edges(self.trie, pos, edgelist=buckets_edges, node_size=ns,
                                edge_color="darkgrey", arrowstyle="-|>", connectionstyle="arc3,rad=-0.2")
 
-        plt.savefig("kad.pdf", format="pdf", bbox_inches=0, pad_inches=0)
+        plt.savefig(f"kad.{ext}", format=ext, bbox_inches=0, pad_inches=0)
         plt.show()
 
     def prepare_updates(self) -> SimpyProcess[None]:

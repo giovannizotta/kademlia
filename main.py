@@ -30,6 +30,8 @@ def parse_args() -> Namespace:
                     help="Client arrival rate (lower is faster)")
     ap.add_argument("-f", "--file", type=str, required=True,
                     help="File in which to save data")
+    ap.add_argument("-e", "--ext", default="pdf", choices=["pdf", "png"], 
+                    help="Extension for network plots")
 
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
@@ -59,7 +61,7 @@ def main() -> None:
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
 
-    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate)
+    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext)
     join_env.process(simulator.simulate_join())
     join_env.run()
     

@@ -1,11 +1,12 @@
 #!/bin/bash
-NODES?=1000
-TIME?=10000
+NODES?=100
+TIME?=100
 SEED?=420
 LEVEL?=INFO
-RATE?=0.01
+RATE?=0.1
 DATADIR?=res/data
 PLOTDIR?=res/plots
+EXT?=pdf
 
 main: help
 
@@ -29,17 +30,19 @@ run_kad: prepare
 
 plot_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --plot True --file $(DATADIR)/CHORD.json
+	--seed $(SEED) --dht CHORD --plot True --file $(DATADIR)/CHORD.json --ext $(EXT)
 
 plot_kad:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --plot True --file $(DATADIR)/KAD.json
+	--seed $(SEED) --dht KAD --plot True --file $(DATADIR)/KAD.json --ext $(EXT)
 
 plot:
 	@python3 plot.py
 	@echo "Plots completed."
 
 plots: run_kad run_chord plot
+
+plot_network: plot_chord plot_kad
 
 plot_arrival_rate: prepare
 	@for rate in 0.01 0.02 0.05 0.1; do \

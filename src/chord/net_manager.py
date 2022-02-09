@@ -17,7 +17,7 @@ class ChordNetManager(NetManager):
         self.nodes[0].pred = self.nodes[1]
         self.nodes[1].pred = self.nodes[0]
 
-    def print_network(self, node: DHTNode) -> None:
+    def print_network(self, node: DHTNode, ext: str) -> None:
         node = cast(ChordNode, node)
         graph_edges = [(u.id, u.succ.id)
                        for u in sorted(self.nodes, key=lambda n: n.id)]
@@ -42,7 +42,7 @@ class ChordNetManager(NetManager):
         nx.draw_networkx_edges(G, pos, edgelist=ft_edges, node_size=NetManager.NODE_SIZE,
                                edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
         # plt.savefig("chord.png")
-        plt.savefig("chord.pdf", format="pdf", bbox_inches=0, pad_inches=0)
+        plt.savefig(f"chord.{ext}", format=ext, bbox_inches=0, pad_inches=0)
         plt.show()
 
     def prepare_updates(self) -> SimpyProcess[None]:
