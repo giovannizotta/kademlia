@@ -38,7 +38,7 @@ run_kad: prepare
 	@echo "Running Kad with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
 	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --alpha $(ALPHA) -k $(K) \
-	--rate $(RATE) --file $(DATADIR)/KAD_$(NODES)_$(TIME)_$(RATE)_.json
+	--rate $(RATE) --file $(DATADIR)/KAD_$(NODES)_$(TIME)_$(RATE).json
 
 plot_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
