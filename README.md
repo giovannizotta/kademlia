@@ -32,6 +32,7 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
     ```
 
 # Plots
+Our simulator offers the possibility to make a chart of the DHT from the perspective of a node.
 
 ![Kademlia](kad.png)
 
