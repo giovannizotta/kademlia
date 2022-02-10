@@ -56,17 +56,16 @@ def get_heatmap(ax, delays, hops, max_delay, max_hops):
     cbar.ax.set_ylabel("Estimated density", rotation=-90, va="bottom")
 
 
-def get_data(inputdir, nodes, time, rate=0):
+def get_data(inputdir, n_nodes, time, rate=0):
     data = dict()
     max_hops = 0
     max_delay = 0
     max_time = 0
-    nodes = 0
     for dht in dhts:
         if rate == 0:
-            pick = open(os.path.join(inputdir, f"{dht}_{nodes}_{time}_0.1.json"), "r", encoding='utf8')
+            pick = open(os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_0.1.json"), "r", encoding='utf8')
         else:
-            pick = open(os.path.join(inputdir, f"{dht}_{nodes}_{time}_{rate}.json"), "r", encoding='utf8')
+            pick = open(os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_{rate}.json"), "r", encoding='utf8')
         dct = json.load(pick)
         # print(dct)
         dht_data: DataCollector = DataCollector.from_dict(dct)
@@ -76,8 +75,7 @@ def get_data(inputdir, nodes, time, rate=0):
         max_time = max(max_time, max(t))
         max_hops = max(max_hops, max(hops))
         max_delay = max(max_delay, np.quantile(delays, 0.99))
-        nodes = len(data[dht].queue_load)
-    return data, max_hops, max_delay, max_time, nodes
+    return data, max_hops, max_delay, max_time
 
 
 def plot_comparison(data, max_hops, ext, nodes, outputdir):
@@ -163,9 +161,8 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: floa
 
 def plot_arrival_load_comparison(inputdir, ext, nodes, time, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
-    nodes = 0
     for ax, rate in zip(axes, rates):
-        data, _, _, max_time, nodes = get_data(inputdir, nodes, time, rate=rate)
+        data, _, _, max_time = get_data(inputdir, nodes, time, rate=rate)
         time = round(max_time)
         timeouts = dict()
         for dht in dhts:
@@ -185,9 +182,8 @@ def plot_arrival_load_comparison(inputdir, ext, nodes, time, rates, outputdir):
 
 def plot_arrival_delay_comparison(inputdir, ext, nodes, time, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
-    nodes = 0
     for ax, rate in zip(axes, rates):
-        data, _, _, _, nodes = get_data(inputdir, nodes, time, rate=rate)
+        data, _, _, _, = get_data(inputdir, nodes, time, rate=rate)
         timeouts = dict()
         for dht in dhts:
             DHT_delays, _ = zip(*data[dht].client_requests)
@@ -208,15 +204,15 @@ def plot_arrival_delay_comparison(inputdir, ext, nodes, time, rates, outputdir):
 def main():
     args = parse_args()
     if not args.arrivals:
-        data, max_hops, max_delay, max_time, nodes = get_data(args.input, args.nodes, args.time)
+        data, max_hops, max_delay, max_time = get_data(args.input, args.nodes, args.time)
         print("Plotting delay comparison")
-        plot_comparison(data, max_hops, args.ext, nodes, args.output)
+        plot_comparison(data, max_hops, args.ext, args.nodes, args.output)
         plt.clf()
         print("Plotting heatmap")
-        plot_heatmap(data, max_hops, max_delay, args.ext, nodes, args.output)
+        plot_heatmap(data, max_hops, max_delay, args.ext, args.nodes, args.output)
         plt.clf()
         print("Plotting load distribution")
-        plot_load_distrib(data, args.ext, nodes, max_time, args.output)
+        plot_load_distrib(data, args.ext, args.nodes, max_time, args.output)
         plt.clf()
     else:
         print("Plotting arrival load comparison")

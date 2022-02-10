@@ -48,7 +48,7 @@ class RandomBatchGenerator(metaclass=Singleton):
     _choices: Dict[int, Iterator[int]] = field(repr=False, init=False, default_factory=dict)
     _rng: np.random.Generator = field(init=False, repr=False)
     seed: int = 420
-    precision: int = 2
+    precision: int = 4
     BATCH_SIZE = 10000
     _instance = None
 
