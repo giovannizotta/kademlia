@@ -1,7 +1,7 @@
 # kademlia
 Assignment for the course on Distributed Systems 2.
 
-The goal of this assignment is to implement the Kademlia protocol in Python and simulate its behaviour to later perform a performance evaluation analysis. In order to have a protocol to which compare Kademlia to, we also implement the Chord DHT.
+The goal of this assignment is to implement the Kademlia protocol in Python and simulate its behaviour to later conduct a performance evaluation analysis. In order to have a protocol to which compare Kademlia to, we also implement the Chord DHT.
 
 # Installation
 * Clone this repository: 

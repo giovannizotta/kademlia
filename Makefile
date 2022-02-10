@@ -1,6 +1,6 @@
 #!/bin/bash
 NODES?=100
-TIME?=100
+TIME?=1000
 SEED?=420
 ALPHA?=3
 K?=5
