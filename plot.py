@@ -8,6 +8,7 @@ from common.simulator import Simulator
 from argparse import ArgumentParser, Namespace
 from itertools import chain
 dhts = (Simulator.CHORD, Simulator.KAD)
+rates = [0.1, 0.5, 0.2, 0.01]
 
 
 def parse_args() -> Namespace:
@@ -25,6 +26,12 @@ def parse_args() -> Namespace:
                     help="Data directory")
     ap.add_argument("-o", "--output", type=str, default="res/plots",
                     help="Output plot directory")
+    ap.add_argument("-r", "--rates", nargs="+", type=float,
+                    help="Rates", default=rates)
+    ap.add_argument("-n", "--nodes", type=int, required=True,
+                    help="Number of nodes")
+    ap.add_argument("-t", "--time", type=int, required=True,
+                    help="Duration of the simulations")
     return ap.parse_args()
 
 
@@ -49,7 +56,7 @@ def get_heatmap(ax, delays, hops, max_delay, max_hops):
     cbar.ax.set_ylabel("Estimated density", rotation=-90, va="bottom")
 
 
-def get_data(inputdir, rate=0):
+def get_data(inputdir, nodes, time, rate=0):
     data = dict()
     max_hops = 0
     max_delay = 0
@@ -57,9 +64,9 @@ def get_data(inputdir, rate=0):
     nodes = 0
     for dht in dhts:
         if rate == 0:
-            pick = open(os.path.join(inputdir, f"{dht}.json"), "r", encoding='utf8')
+            pick = open(os.path.join(inputdir, f"{dht}_{nodes}_{time}_0.1.json"), "r", encoding='utf8')
         else:
-            pick = open(os.path.join(inputdir, f"{dht}_{rate}.json"), "r", encoding='utf8')
+            pick = open(os.path.join(inputdir, f"{dht}_{nodes}_{time}_{rate}.json"), "r", encoding='utf8')
         dct = json.load(pick)
         # print(dct)
         dht_data: DataCollector = DataCollector.from_dict(dct)
@@ -154,11 +161,11 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: floa
     #fig.suptitle(f"Average node load distribution, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"load_distr_{nodes}.{ext}"), format=ext, bbox_inches="tight")
 
-def plot_arrival_load_comparison(inputdir, ext, rates, outputdir):
+def plot_arrival_load_comparison(inputdir, ext, nodes, time, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
     for ax, rate in zip(axes, rates):
-        data, _, _, max_time, nodes = get_data(inputdir, rate=rate)
+        data, _, _, max_time, nodes = get_data(inputdir, nodes, time, rate=rate)
         time = round(max_time)
         timeouts = dict()
         for dht in dhts:
@@ -176,11 +183,11 @@ def plot_arrival_load_comparison(inputdir, ext, rates, outputdir):
     #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"arrivals_load_{nodes}.{ext}"), format=ext)
 
-def plot_arrival_delay_comparison(inputdir, ext, rates, outputdir):
+def plot_arrival_delay_comparison(inputdir, ext, nodes, time, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
     for ax, rate in zip(axes, rates):
-        data, _, _, _, nodes = get_data(inputdir, rate=rate)
+        data, _, _, _, nodes = get_data(inputdir, nodes, time, rate=rate)
         timeouts = dict()
         for dht in dhts:
             DHT_delays, _ = zip(*data[dht].client_requests)
@@ -201,7 +208,7 @@ def plot_arrival_delay_comparison(inputdir, ext, rates, outputdir):
 def main():
     args = parse_args()
     if not args.arrivals:
-        data, max_hops, max_delay, max_time, nodes = get_data(args.input)
+        data, max_hops, max_delay, max_time, nodes = get_data(args.input, args.nodes, args.time)
         print("Plotting delay comparison")
         plot_comparison(data, max_hops, args.ext, nodes, args.output)
         plt.clf()
@@ -212,12 +219,11 @@ def main():
         plot_load_distrib(data, args.ext, nodes, max_time, args.output)
         plt.clf()
     else:
-        rates = [0.04, 0.03, 0.02, 0.01]
         print("Plotting arrival load comparison")
-        plot_arrival_load_comparison(args.input, args.ext, rates, args.output)
+        plot_arrival_load_comparison(args.input, args.ext, args.nodes, args.time, args.rates, args.output)
         plt.clf()
         print("Plotting arrival delay comparison")
-        plot_arrival_delay_comparison(args.input, args.ext, rates, args.output)
+        plot_arrival_delay_comparison(args.input, args.ext, args.nodes, args.time, args.rates, args.output)
         plt.clf()
 
 

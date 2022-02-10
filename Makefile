@@ -9,8 +9,18 @@ RATE?=0.1
 DATADIR?=res/data
 PLOTDIR?=res/plots
 EXT?=pdf
+RATES?=0.01 0.02 0.05 0.1
 
 main: help
+
+test1:
+	echo "hi"
+
+test:
+	@for rate in $(RATES); do \
+		echo $$rate; \
+		test1; \
+	done
 
 clean:
 	@rm -f *.log
@@ -22,13 +32,13 @@ prepare: clean
 run_chord: prepare
 	@echo "Running Chord with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --rate $(RATE) --file $(DATADIR)/CHORD.json
+	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --rate $(RATE) --file $(DATADIR)/CHORD_$(NODES)_$(TIME)_$(RATE).json
 
 run_kad: prepare
 	@echo "Running Kad with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
 	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --alpha $(ALPHA) -k $(K) \
-	--rate $(RATE) --file $(DATADIR)/KAD.json
+	--rate $(RATE) --file $(DATADIR)/KAD_$(NODES)_$(TIME)_$(RATE)_.json
 
 plot_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
@@ -39,7 +49,7 @@ plot_kad:
 	--seed $(SEED) --dht KAD --plot True --file $(DATADIR)/KAD.json --ext $(EXT)
 
 plot:
-	@python3 plot.py
+	@python3 plot.py --nodes $(NODES) --time $(TIME)
 	@echo "Plots completed."
 
 plots: run_kad run_chord plot
@@ -47,16 +57,16 @@ plots: run_kad run_chord plot
 plot_network: plot_chord plot_kad
 
 plot_arrival_rate: prepare
-	@for rate in 0.03 0.04; do \
+	@for rate in $(RATES); do \
 		echo "Rate: $$rate" ;\
 		echo "Running Kad";\
 		python3 main.py --nodes $(NODES) --max-time $(TIME) \
-		--seed $(SEED) --dht KAD --loglevel $(LEVEL) --file $(DATADIR)/KAD_$$rate.json --rate $$rate; \
+		--seed $(SEED) --dht KAD --loglevel $(LEVEL) --file $(DATADIR)/KAD_$(NODES)_$(TIME)_$$rate.json --rate $$rate; \
 		echo "Running Chord";\
 		python3 main.py --nodes $(NODES) --max-time $(TIME) \
-			--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --file $(DATADIR)/CHORD_$$rate.json --rate $$rate; \
+			--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --file $(DATADIR)/CHORD_$(NODES)_$(TIME)_$$rate.json --rate $$rate; \
 	done
-	@python3 plot.py --arrivals
+	@python3 plot.py --arrivals --nodes $(NODES) --time $(TIME) --rates $(RATES)
 	@echo "Arrivals plot completed."
 
 help: 
