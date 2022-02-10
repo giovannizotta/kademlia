@@ -13,15 +13,6 @@ RATES?=0.01 0.02 0.05 0.1
 
 main: help
 
-test1:
-	echo "hi"
-
-test:
-	@for rate in $(RATES); do \
-		echo $$rate; \
-		test1; \
-	done
-
 clean:
 	@rm -f *.log
 

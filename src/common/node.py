@@ -45,6 +45,7 @@ def packet_service(
 
 @dataclass
 class DataCollector:
+    """Collect the data from the simulation"""
     timed_out_requests: int = 0
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
     queue_load: Dict[str, List[Tuple[float, int]]] = field(
@@ -65,6 +66,7 @@ class DataCollector:
 
 @dataclass
 class Node(Loggable):
+    """Network node"""
     datacollector: DataCollector = field(repr=False)
     max_timeout: float = field(repr=False, default=50.0)
     log_world_size: int = field(repr=False, default=10)
@@ -76,6 +78,7 @@ class Node(Loggable):
         self.id = Node._compute_key(self.name, self.log_world_size)
 
     def new_req(self) -> Request:
+        """Generate a new request event"""
         return Request(self.env.event())
 
     def _transmit(self) -> SimpyProcess[None]:
@@ -118,6 +121,7 @@ class Node(Loggable):
 
         Args:
             sent_reqs (Sequence[Request]): the requests associated to the wait event
+            packets (List[Packet]): the list filled with packets received within the timeout
 
         Raises:
             DHTTimeoutError: if at least one response times out
@@ -154,6 +158,7 @@ class Node(Loggable):
 
         Args:
             recv_req (Request): the reception event that has to be triggered
+            packet (Packet): the packet to send
         """
         packet.sender = self
         yield from self._transmit()
@@ -200,7 +205,12 @@ class DHTNode(Node):
         key: int,
         ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[Optional[DHTNode]]:
-        """Iteratively find the closest node(s) to the given key"""
+        """Iteratively find the closest node(s) to the given key
+
+        Args:
+            key (int): The key
+            ask_to (Optional[DHTNode], optional): If given, this is the first node that is contacted. Defaults to None.
+        """
         pass
 
     @abstractmethod
@@ -209,12 +219,21 @@ class DHTNode(Node):
         packet: Packet,
         recv_req: Request
     ) -> SimpyProcess:
-        """Answer with the node(s) closest to the key among the known ones"""
+        """Answer with the node(s) closest to the key among the known ones
+
+        Args:
+            packet (Packet): The packet received
+            recv_req (Request): The request to answer to
+        """
         pass
 
     @abstractmethod
     def join_network(self, to: DHTNode) -> SimpyProcess:
-        """Send necessary requests to join the network"""
+        """Send necessary requests to join the network
+
+        Args:
+            to (DHTNode): The node to contact first
+        """
         pass
 
     @classmethod
@@ -223,26 +242,43 @@ class DHTNode(Node):
         pass
 
     def get_value(self, packet: Packet, recv_req: Request) -> None:
-        """Get value associated to a given key in the node's hash table"""
+        """Get value associated to a given key in the node's hash table
+
+        Args:
+            packet (Packet): The packet containing the asked key
+            recv_req (Request): The request event to answer to
+        """
         key = packet.data["key"]
         packet.data["value"] = self.ht.get(key)
         self.send_resp(recv_req, packet)
 
     def set_value(self, packet: Packet, recv_req: Request) -> None:
-        """Set the value to be associated to a given key in the node's hash table"""
+        """Set the value to be associated to a given key in the node's hash table
+
+        Args:
+            packet (Packet): The packet containing the asked key
+            recv_req (Request): The request event to answer to
+        """
         key = packet.data["key"]
         self.ht[key] = packet.data["value"]
         self.send_resp(recv_req, packet)
 
     @abstractmethod
     def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Get value associated to a given key"""
+        """Iteratively find the value associated to a given key
+
+        Args:
+            packet (Packet): The packet containing the asked key
+            recv_req (Request): The request event to answer to
+        """
         pass
 
     @abstractmethod
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Store the value to be associated to a given key"""
-        pass
+        """Iteratively store the given value associated to the given key
 
-    # to implement:
-    # leave, (crash ?), store_value
+        Args:
+            packet (Packet): The packet containing the key and the value
+            recv_req (Request): The request event to answer to
+        """
+        pass

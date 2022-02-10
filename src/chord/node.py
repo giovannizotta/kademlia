@@ -40,14 +40,6 @@ class ChordNode(DHTNode):
         self._pred = node
 
     def _get_best_node(self, key: int) -> Tuple[ChordNode, bool]:
-        """Get the best node for a given key from the finger table
-
-        Args:
-            key (int): the key to be searched
-
-        Returns:
-            Tuple[ChordNode, bool]: best_node, true if the node is self
-        """
         best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
             node.id, key, self.log_world_size))
         found = best_node is self
@@ -57,16 +49,6 @@ class ChordNode(DHTNode):
 
     def _get_best_node_and_forward(self, key: int, packet: Packet, ask_to: Optional[ChordNode]) -> \
             Tuple[ChordNode, bool, Optional[Request]]:
-        """Iteratively search for the best node for a given key. 
-
-        Args:
-            key (int): the key to be searched
-            packet (Packet): the packet to be sent
-            ask_to (Optional[ChordNode], optional): Optional hint of a node to ask to. Defaults to None.
-
-        Returns:
-            Tuple[ChordNode, bool]: best_node, found or not, sent_request 
-        """
         self.log(f"looking for node with key {key}")
         if ask_to is not None:
             self.log(f"asking to {ask_to}")
@@ -102,12 +84,6 @@ class ChordNode(DHTNode):
         packet: Packet,
         recv_req: Request
     ) -> None:
-        """Get the best node in the finger table of the node for the given key.
-
-        Args:
-            packet (Packet): the packet
-            recv_req (Request): the event to be triggered by the successful response
-        """
         key = packet.data["key"]
         best_node, _ = self._get_best_node(key)
         packet.data["best_node"] = best_node
@@ -118,12 +94,6 @@ class ChordNode(DHTNode):
         key: int,
         ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[Tuple[Optional[DHTNode], int]]:
-        """Execute the iterative search to find the best node for the given key.
-
-        Args:
-            key (int): the key to be searched for
-            ask_to (Optional[ChordNode], optional): first node to contact. Used only in join. Defaults to None.
-        """
         self.log(f"start looking for node holding {key}")
         packet = Packet(data=dict(key=key))
         best_node, found, sent_req = self._get_best_node_and_forward(key, packet, ask_to)
@@ -223,7 +193,6 @@ class ChordNode(DHTNode):
 
     @classmethod
     def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
-        """Compute the distance from key1 to key 2"""
         dst = (key2 - key1)
         ws: int = 2**log_world_size
         return dst % ws
@@ -247,7 +216,6 @@ class ChordNode(DHTNode):
         self.send_resp(recv_req, packet)
 
     def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Find the value associated to a given key"""
         key = packet.data["key"]
         try:
             node, hops = yield from self.find_node(key)
@@ -270,7 +238,6 @@ class ChordNode(DHTNode):
         self.send_resp(recv_req, packet)
 
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Store the value to be associated to a given key"""
         key = packet.data["key"]
         try:
             node, hops = yield from self.find_node(key)

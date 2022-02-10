@@ -47,6 +47,7 @@ def parse_args() -> Namespace:
 
 def main() -> None:
     args = parse_args()
+    # init the logger
     logger = logging.getLogger("logger")
     logger.setLevel(args.loglevel)
     fh = logging.FileHandler(f"{args.dht}_logs.log", mode='w')
@@ -56,9 +57,10 @@ def main() -> None:
     logger.addHandler(fh)
     # init random seed
     RBG(seed=args.seed)
+
+    # init the network
     join_env = simpy.Environment()
     datacollector = DataCollector()
-    
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.alpha, args.k)
@@ -69,13 +71,15 @@ def main() -> None:
     join_env.process(simulator.simulate_join())
     join_env.run()
     
+    # forget data collected during the join
     datacollector.clear()
-
+    # start the simulation
     run_env = simpy.Environment()
     run_env.process(simulator.simulate(run_env))
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i+1)
 
+    # dump collected data
     with open(args.file, 'w', encoding='utf8') as f:
         json.dump(datacollector.to_dict(), f, separators=(',', ':'))
 

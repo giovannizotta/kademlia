@@ -23,9 +23,7 @@ Request = NewType("Request", simpy.Event)
 Method = Callable[..., T]
 
 class DHTTimeoutError(Exception):
-    pass
-
-class DHTQueueFullError(Exception):
+    """Error raised when a request times out"""
     pass
 
 class Singleton(type):
@@ -53,12 +51,6 @@ class RandomBatchGenerator(metaclass=Singleton):
     _instance = None
 
     def __post_init__(self):
-        """Initialize Random Batch Generator
-
-        Args:
-            seed (int, optional): Random seed to use. Defaults to 420.
-            precision (int, optional): Decimal precision of distributions' parameters. Defaults to 2.
-        """
         self.precision = 10 ** self.precision
         self._rng = np.random.default_rng(self.seed)
 

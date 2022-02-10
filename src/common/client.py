@@ -8,6 +8,7 @@ class Client(Node):
         self.max_timeout = self.max_timeout * 6
         
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
+        """Perform a find_value request and wait for the response"""
         self.log(f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
         before = self.env.now
         key_hash = self._compute_key(key, self.log_world_size)
@@ -29,6 +30,7 @@ class Client(Node):
                 f"Request for find key {key} timed out", level=logging.WARNING)
 
     def store_value(self, ask_to: DHTNode, key: str, value: int) -> SimpyProcess[None]:
+        """Perform a store_value request and wait for the response"""
         self.log(f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
         before = self.env.now
         key_hash = self._compute_key(key, self.log_world_size)

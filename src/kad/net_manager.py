@@ -81,7 +81,6 @@ class KadNetManager(NetManager):
         self.trie = self.trie.get_sorted()
 
     def create_nodes(self) -> None:
-        """Instantiate the nodes for the simulation"""
         self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(

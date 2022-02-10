@@ -6,8 +6,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 
+
 @dataclass
 class NetManager(ABC):
+    """Manages a DHT network by creating and configuring the nodes"""
     env: simpy.Environment
     n_nodes: int
     datacollector: DataCollector
@@ -25,14 +27,17 @@ class NetManager(ABC):
 
     @abstractmethod
     def create_nodes(self):
+        """Create the DHT nodes"""
         pass
 
     @abstractmethod
     def print_network(self, node: DHTNode, ext: str) -> None:
+        """Plot a graph of the network"""
         pass
 
     @abstractmethod
     def prepare_updates(self) -> SimpyProcess[None]:
+        """Simulate an update of the network knowledge (if needed)"""
         pass
 
     def change_env(self, env: simpy.Environment) -> None:

@@ -64,6 +64,7 @@ class Simulator(Loggable):
             return client.store_value(ask_to, key, value)
 
     def simulate_join(self) -> SimpyProcess[None]:
+        """Simulate the join process of the network"""
         yield from self.build_network()
 
         yield from self.net_manager.prepare_updates()

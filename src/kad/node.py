@@ -74,7 +74,6 @@ class KadNode(DHTNode):
         return requests
 
     def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Find the value associated to a given key"""
         key = packet.data["key"]
         packets = []
         nodes, hops = yield from self.find_node(key)
@@ -103,7 +102,6 @@ class KadNode(DHTNode):
         self.send_resp(recv_req, packet)
 
     def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
-        """Store the value to be associated to a given key"""
         key = packet.data["key"]
         nodes, hops = yield from self.find_node(key)
         try:
