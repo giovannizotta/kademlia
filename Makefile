@@ -2,6 +2,8 @@
 NODES?=100
 TIME?=100
 SEED?=420
+ALPHA?=3
+K?=5
 LEVEL?=INFO
 RATE?=0.1
 DATADIR?=res/data
@@ -12,7 +14,6 @@ main: help
 
 clean:
 	@rm -f *.log
-	@rm -rf $(DATADIR)
 
 prepare: clean
 	@mkdir -p $(DATADIR)
@@ -26,7 +27,8 @@ run_chord: prepare
 run_kad: prepare
 	@echo "Running Kad with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --rate $(RATE) --file $(DATADIR)/KAD.json
+	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --alpha $(ALPHA) -k $(K) \
+	--rate $(RATE) --file $(DATADIR)/KAD.json
 
 plot_chord:
 	@python3 main.py --nodes $(NODES) --max-time $(TIME) \
@@ -45,7 +47,7 @@ plots: run_kad run_chord plot
 plot_network: plot_chord plot_kad
 
 plot_arrival_rate: prepare
-	@for rate in 0.01 0.02 0.05 0.1; do \
+	@for rate in 0.03 0.04; do \
 		echo "Rate: $$rate" ;\
 		echo "Running Kad";\
 		python3 main.py --nodes $(NODES) --max-time $(TIME) \

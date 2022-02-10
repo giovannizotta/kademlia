@@ -68,6 +68,8 @@ class Trie(nx.DiGraph):
 
 @dataclass
 class KadNetManager(NetManager):
+    alpha: int = field(repr=False, default=3)
+    k: int = field(repr=False, default=5)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -83,7 +85,7 @@ class KadNetManager(NetManager):
         self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size))
+                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size, alpha=self.alpha, k=self.k))
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])

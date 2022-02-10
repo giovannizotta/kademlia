@@ -46,7 +46,7 @@ def get_heatmap(ax, delays, hops, max_delay, max_hops):
     # plt.show()
     cbar = ax.figure.colorbar(
         im, ax=ax, fraction=0.046*im_ratio, location="right")
-    cbar.ax.set_ylabel("Density", rotation=-90, va="bottom")
+    cbar.ax.set_ylabel("Estimated density", rotation=-90, va="bottom")
 
 
 def get_data(inputdir, rate=0):
@@ -88,8 +88,8 @@ def plot_comparison(data, max_hops, ext, nodes, outputdir):
     ax2.set_title("Number of hops")
     ax1.set_xlabel("Client waiting time (s)")
     ax2.set_xlabel("Number of hops")
-    ax1.set_ylabel("Estimated probability")
-    ax2.set_ylabel("Estimated probability")
+    ax1.set_ylabel("Estimated density")
+    ax2.set_ylabel("Estimated density")
     ax1.legend()
     ax2.legend()
     #fig.suptitle(f"Waiting time and number of hops, {nodes} nodes", va="bottom", ha="center")
@@ -147,17 +147,17 @@ def plot_load_distrib(data: Dict[str, DataCollector], ext, nodes, max_time: floa
             # print(hh[-10:], bb[-10:])
             ax.hist(loads, bins=10, alpha=0.6, label=dht, density=True)
         ax.set_xlabel("Average queue load")
-        ax.set_ylabel("Density")
+        ax.set_ylabel("Estimated density")
         ax.set_title(f"Until {time} (s)")
         ax.legend()
 
     #fig.suptitle(f"Average node load distribution, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"load_distr_{nodes}.{ext}"), format=ext, bbox_inches="tight")
 
-def plot_arrival_load_comparison(inputdir, ext, outputdir):
+def plot_arrival_load_comparison(inputdir, ext, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
-    for ax, rate in zip(axes, reversed([0.01, 0.02, 0.05, 0.1])):
+    for ax, rate in zip(axes, rates):
         data, _, _, max_time, nodes = get_data(inputdir, rate=rate)
         time = round(max_time)
         timeouts = dict()
@@ -169,17 +169,17 @@ def plot_arrival_load_comparison(inputdir, ext, outputdir):
             ax.hist(loads, bins=10, alpha=0.6, label=labl, density=True)
         title = [f"{dht}: {timeouts[dht]:4.1f}%" for dht in dhts]
         ax.set_xlabel("Average queue load")
-        ax.set_ylabel("Density")
+        ax.set_ylabel("Estimated density")
         ax.set_title(f"Arrival rate: {1/rate:.1f}\nTO: {', '.join(title)}", fontsize=10)
         ax.legend()
 
     #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"arrivals_load_{nodes}.{ext}"), format=ext)
 
-def plot_arrival_delay_comparison(inputdir, ext, outputdir):
+def plot_arrival_delay_comparison(inputdir, ext, rates, outputdir):
     fig, axes = plt.subplots(1, 4, figsize=(12, 3), constrained_layout=True)
     nodes = 0
-    for ax, rate in zip(axes, reversed([0.01, 0.02, 0.05, 0.1])):
+    for ax, rate in zip(axes, rates):
         data, _, _, _, nodes = get_data(inputdir, rate=rate)
         timeouts = dict()
         for dht in dhts:
@@ -193,7 +193,7 @@ def plot_arrival_delay_comparison(inputdir, ext, outputdir):
         title = [f"{dht} {timeouts[dht]:4.1f}%" for dht in dhts]
         ax.set_title(f"Arrival rate: {1/rate:.1f}\nTO: {', '.join(title)}", fontsize=10)
         ax.set_xlabel("Client waiting time (s)")
-        ax.set_ylabel("Density")
+        ax.set_ylabel("Estimated density")
         ax.legend()
     #fig.suptitle(f"Average load distribution with different arrival rates, {nodes} nodes", va="bottom", ha="center")
     plt.savefig(os.path.join(outputdir, f"arrivals_delay_{nodes}.{ext}"), format=ext)
@@ -212,11 +212,12 @@ def main():
         plot_load_distrib(data, args.ext, nodes, max_time, args.output)
         plt.clf()
     else:
+        rates = [0.04, 0.03, 0.02, 0.01]
         print("Plotting arrival load comparison")
-        plot_arrival_load_comparison(args.input, args.ext, args.output)
+        plot_arrival_load_comparison(args.input, args.ext, rates, args.output)
         plt.clf()
         print("Plotting arrival delay comparison")
-        plot_arrival_delay_comparison(args.input, args.ext, args.output)
+        plot_arrival_delay_comparison(args.input, args.ext, rates, args.output)
         plt.clf()
 
 

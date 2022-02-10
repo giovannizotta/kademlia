@@ -45,7 +45,7 @@ class Simulator(Loggable):
             self.log(f"node {i} trying to join")
             yield self.env.process(
                 self.net_manager.nodes[i].join_network(
-                    self.net_manager.nodes[0])
+                    self.net_manager.nodes[self.rbg.get_from_range(i)])
             )
             self.log(f"node {i} joined")
         self.log("All nodes joined", level=logging.INFO)

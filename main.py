@@ -32,6 +32,10 @@ def parse_args() -> Namespace:
                     help="File in which to save data")
     ap.add_argument("-e", "--ext", default="pdf", choices=["pdf", "png"], 
                     help="Extension for network plots")
+    ap.add_argument("-a", "--alpha", type=int, default=3,
+                    help="Alpha value for Kademlia")
+    ap.add_argument("-k", type=int, default=5,
+                    help="K value for Kademlia")
 
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
@@ -57,7 +61,7 @@ def main() -> None:
     
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
-        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
+        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
 
