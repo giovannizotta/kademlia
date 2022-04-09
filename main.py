@@ -5,6 +5,7 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 
 from chord.net_manager import ChordNetManager
+from common.net_manager import NetManager
 from common.node import DataCollector
 from common.simulator import Simulator
 from common.utils import RandomBatchGenerator as RBG
@@ -68,6 +69,7 @@ def main() -> None:
     join_env = simpy.Environment()
     datacollector = DataCollector()
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
+    net_manager: NetManager
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(
             join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)

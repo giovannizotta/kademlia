@@ -85,12 +85,12 @@ class Node(Loggable):
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
     @abstractmethod
-    def manage_packet(self, packet: Packet):
+    def manage_packet(self, packet: Packet) -> None:
         if packet.ptype.is_reply():
             assert packet.event is not None
             packet.event.succeed(value=packet)
 
-    def recv_packet(self, packet: Packet):
+    def recv_packet(self, packet: Packet) -> SimpyProcess[None]:
         # Manage network buffer and call manage_packet
         if len(self.in_queue.queue) == self.queue_capacity:
             return
@@ -202,7 +202,7 @@ class Node(Loggable):
         digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
         bindigest = BitArray(hex=digest).bin
         subbin = bindigest[:log_world_size]
-        return BitArray(bin=subbin).uint
+        return cast(int, BitArray(bin=subbin).uint)
 
 
 @dataclass
@@ -217,7 +217,7 @@ class DHTNode(Node):
         self.ht = dict()
 
     @abstractmethod
-    def manage_packet(self, packet: Packet):
+    def manage_packet(self, packet: Packet) -> None:
         super().manage_packet(packet)
         if packet.ptype == PacketType.GET_NODE:
             self.get_node(packet)
@@ -252,7 +252,7 @@ class DHTNode(Node):
     def get_node(
         self,
         packet: Packet
-    ) -> SimpyProcess:
+    ) -> None:
         """Answer with the node(s) closest to the key among the known ones
 
         Args:
@@ -279,7 +279,7 @@ class DHTNode(Node):
         key = packet.data["key"]
         new_packet = Packet(ptype=PacketType.GET_VALUE_REPLY, data=dict(
             value=self.ht.get(key)), event=packet.event)
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(cast(Node, packet.sender), new_packet)
 
     def set_value(self, packet: Packet) -> None:
         """Set the value to be associated to a given key in the node's hash table
@@ -292,7 +292,7 @@ class DHTNode(Node):
         self.ht[key] = packet.data["value"]
         new_packet = Packet(
             ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(cast(Node, packet.sender), new_packet)
 
     @abstractmethod
     def find_value(self, packet: Packet) -> SimpyProcess[None]:

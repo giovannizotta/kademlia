@@ -7,14 +7,9 @@ class Client(Node):
         super().__post_init__()
         self.max_timeout = self.max_timeout * 6
 
-    def manage_packet(self, packet: Packet):
-        if packet.ptype == PacketType.REPLY_FIND:
-            pass
-        elif packet.ptype == PacketType.REPLY_STORE:
-            pass
-        else:
-            pass
-
+    def manage_packet(self, packet: Packet) -> None:
+        return super().manage_packet(packet)
+        
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
         """Perform a find_value request and wait for the response"""
         self.log(
