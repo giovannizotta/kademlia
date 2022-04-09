@@ -14,6 +14,7 @@ class NetManager(ABC):
     n_nodes: int
     datacollector: DataCollector
     log_world_size: int
+    capacity: int
     nodes: Sequence[DHTNode] = field(init=False)
 
     NODE_SIZE: ClassVar[float] = 1200

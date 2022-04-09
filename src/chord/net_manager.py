@@ -9,7 +9,7 @@ class ChordNetManager(NetManager):
         self.nodes: Sequence[ChordNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                ChordNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size))
+                ChordNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size, queue_capacity=self.capacity))
         # hardwire two nodes
         self.nodes[0].succ = self.nodes[1]
         self.nodes[1].succ = self.nodes[0]

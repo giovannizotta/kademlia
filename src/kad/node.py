@@ -1,29 +1,10 @@
 from __future__ import annotations
-from concurrent.futures import process
 from common.utils import *
-from common.node import DHTNode, packet_service, Packet, Request
+from common.node import DHTNode, PacketType, Packet, Request
 from math import log2
 from dataclasses import dataclass
 from collections.abc import Sequence
 from collections import defaultdict
-
-
-def process_sender(operation: Callable[..., T]) -> Callable[..., T]:
-    def wrapper(self: KadNode, packets: Union[Packet, Sequence[Packet]], *args: Any) -> T:
-        is_list = True
-        if not isinstance(packets, Sequence):
-            is_list = False
-            packets = [packets]
-        for packet in packets:
-            sender = cast(KadNode, packet.sender)
-            self.log(f"processing sender {sender.name}")
-            self.update_bucket(sender)
-        if is_list:
-            return operation(self, packets, *args)
-        else:
-            return operation(self, *packets, *args)
-
-    return wrapper
 
 def decide_value(packets: List[Packet]):
     # give the most popular value
@@ -40,6 +21,7 @@ def decide_value(packets: List[Packet]):
 class KadNode(DHTNode):
     neigh: Optional[KadNode] = None
     buckets: List[List[KadNode]] = field(init=False, repr=False)
+    capacity: int = field(repr=False, default=100)
     alpha: int = field(repr=False, default=3)
     k: int = field(repr=False, default=5)
 
@@ -49,73 +31,77 @@ class KadNode(DHTNode):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.max_timeout = 10
+        self.buckets = [[] for _ in range(self.log_world_size)]
 
-    @packet_service
-    @process_sender
-    def get_value(self, packet: Packet, recv_req: Request) -> None:
-        super().get_value(packet, recv_req)
+    def process_sender(self: KadNode, packet: Packet) -> None:
+        sender = cast(KadNode, packet.sender)
+        self.log(f"processing sender {sender.name}")
+        self.update_bucket(sender)
 
-    @packet_service
-    @process_sender
-    def set_value(self, packet: Packet, recv_req: Request) -> None:
-        super().set_value(packet, recv_req)
+    def manage_packet(self, packet: Packet):
+        self.process_sender(packet)
+        super().manage_packet(packet)
 
-    def reply_find_value(self, recv_req: Request, packets: List[Packet], hops: int) -> None:
-        value = decide_value(packets)
-        packet = Packet(data=dict(value=value, hops=hops))
-        self.send_resp(recv_req, packet)
+    def get_node(self, packet: Packet) -> None:
+        neighs = self.pick_neighbors(packet.data["key"])
+        new_packet = Packet(ptype=PacketType.GET_NODE_REPLY, data=dict(neighbors=neighs), event=packet.event) 
+        self.send_resp(packet.sender, new_packet)
 
-    def ask_value(self, to: List[KadNode], packet: Packet) -> List[Request]:
+    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode], contacted: Set[KadNode]) -> bool:
+        current_set = set(current)
+        for packet in packets:
+            for neigh in packet.data["neighbors"]:
+                current_set.add(neigh)
+        # print(current_set)
+
+        candidates = sorted(current_set, key=lambda x: KadNode._compute_distance(
+            x.id, key, self.log_world_size))
+        candidates = candidates[:self.k]
+        if candidates != current and not all(c in contacted for c in candidates):
+            found = False
+            current.clear()
+            for c in candidates:
+                current.append(c)
+        else:
+            found = True
+        return found 
+
+    def ask(self, to: List[KadNode], packet: Packet, type: PacketType) -> List[Request]:
         requests = []
         for node in to:
-            self.log(f"asking {node} for the key {packet.data['key']}")
-            sent_req = self.send_req(node.get_value, packet)
+            self.log(f"asking {type} to {node} for the key {packet.data['key']} {packet.data.get('value', '')}")
+            new_packet = Packet(ptype=type, data=packet.data)
+            sent_req = self.send_req(packet.sender, new_packet)
             requests.append(sent_req)
         return requests
 
-    def find_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
+    def find_value(self, packet: Packet) -> SimpyProcess[None]:
         key = packet.data["key"]
         packets = []
         nodes, hops = yield from self.find_node(key)
 
         try:
-            requests = self.ask_value(nodes, packet)
+            requests = self.ask(nodes, packet, PacketType.GET_VALUE)
             yield from self.wait_resps(requests, packets)
         except DHTTimeoutError:
             if not packets:
                 hops = -1
-                packet.data["value"] = None
         
-        self.reply_find_value(recv_req, packets, hops)
+        value = decide_value(packets)
+        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(value=value, hops=hops), event=packet.event)
+        self.send_resp(packet.sender, new_packet)
 
-    def ask_set_value(self, to: List[KadNode], packet: Packet) -> List[Request]:
-        requests = []
-        for node in to:
-            self.log(
-                    f"asking {node} to set the value {packet.data['value']} for the key {packet.data['key']}")
-            sent_req = self.send_req(node.set_value, packet)
-            requests.append(sent_req)
-        return requests
-
-    def reply_store_value(self, recv_req: Request, hops:int) -> None:
-        packet = Packet(data=dict(hops=hops))
-        self.send_resp(recv_req, packet)
-
-    def store_value(self, packet: Packet, recv_req: Request) -> SimpyProcess[None]:
+    def store_value(self, packet: Packet) -> SimpyProcess[None]:
         key = packet.data["key"]
         nodes, hops = yield from self.find_node(key)
         try:
-            requests = self.ask_set_value(nodes, packet)
+            requests = self.ask(nodes, packet, PacketType.SET_VALUE)
             yield from self.wait_resps(requests, [])
         except DHTTimeoutError:
             hops = -1
-            packet.data["value"] = None
         
-        self.reply_store_value(recv_req, hops)
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.buckets = [[] for _ in range(self.log_world_size)]
+        new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY, data=dict(hops=hops), event=packet.event)
+        self.send_resp(packet.sender, new_packet)
 
     def get_bucket_for(self, key: int) -> int:
         dst = KadNode._compute_distance(key, self.id, self.log_world_size)
@@ -144,7 +130,7 @@ class KadNode(DHTNode):
         self.log(f"Looking for key {key}")
         contacted = set()
         contacted.add(self)
-        current = self.find_neighbors(key)
+        current = self.pick_neighbors(key)
         assert len(current) > 0
         found = False
         hop = 0
@@ -162,34 +148,13 @@ class KadNode(DHTNode):
 
             old_current = current.copy()
             # print(f"Received {packets}")
-            found = yield from self.update_candidates(packets, key, current, contacted)
+            found = self.update_candidates(packets, key, current, contacted)
 
         for node in current:
             self.update_bucket(node)
         return current, hop
 
-    @packet_service
-    @process_sender
-    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode], contacted: Set[KadNode]) -> bool:
-        current_set = set(current)
-        for packet in packets:
-            for neigh in packet.data["neighbors"]:
-                current_set.add(neigh)
-        # print(current_set)
-
-        candidates = sorted(current_set, key=lambda x: KadNode._compute_distance(
-            x.id, key, self.log_world_size))
-        candidates = candidates[:self.k]
-        if candidates != current and not all(c in contacted for c in candidates):
-            found = False
-            current.clear()
-            for c in candidates:
-                current.append(c)
-        else:
-            found = True
-        return found 
-
-    def find_neighbors(self, key: int) -> List[KadNode]:
+    def pick_neighbors(self, key: int) -> List[KadNode]:
         nodes = set()
         for neigh in neigh_picker(self, key):
             nodes.add(neigh)
@@ -197,12 +162,6 @@ class KadNode(DHTNode):
                 break
         return sorted(nodes, key=lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))[:self.k]
 
-    @packet_service
-    @process_sender
-    def on_find_node_request(self, packet: Packet, recv_req: Request) -> None:
-        neighs = self.find_neighbors(packet.data["key"])
-        packet.data["neighbors"] = neighs
-        self.send_resp(recv_req, packet)
 
     def ask_neighbors(self, current: List[KadNode], contacted: Set[KadNode], key: int) -> List[Request]:
         # find nodes to contact
@@ -218,9 +177,8 @@ class KadNode(DHTNode):
         self.log(f"Contacting {to_contact} ")
         requests = []
         for node in to_contact:
-            packet = Packet()
-            packet.data["key"] = key
-            sent_req = self.send_req(node.on_find_node_request, packet)
+            packet = Packet(ptype=PacketType.GET_NODE, data=dict(key=key))
+            sent_req = self.send_req(node, packet)
             requests.append(sent_req)
         return requests
 

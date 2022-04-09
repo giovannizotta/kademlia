@@ -12,6 +12,7 @@ NODES_TO_JOIN = 10
 MAX_TIME = 10.0
 WORLD_SIZE = 160
 N_KEYS = 10**4
+QUEUE_CAPACITY=100
 
 
 def parse_args() -> Namespace:
@@ -36,6 +37,8 @@ def parse_args() -> Namespace:
                     help="Alpha value for Kademlia")
     ap.add_argument("-k", type=int, default=5,
                     help="K value for Kademlia")
+    ap.add_argument("-q", "--capacity", type=int, default=QUEUE_CAPACITY,
+                    help="Queue capacity")
 
     # sp = ap.add_subparsers(dest="action")
     # kad_parser = sp.add_parser("kad", help="Kademlia")
@@ -63,9 +66,9 @@ def main() -> None:
     datacollector = DataCollector()
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
-        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.alpha, args.k)
+        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
-        net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE)
+        net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity)
 
     simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext)
     join_env.process(simulator.simulate_join())

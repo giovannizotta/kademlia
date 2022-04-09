@@ -13,6 +13,7 @@ class Simulator(Loggable):
     max_value: int = 10**9
     mean_arrival: float = 0.1
     ext: str = "pdf"
+    capacity: int = 100
 
     FIND: ClassVar[str] = "FIND"
     STORE: ClassVar[str] = "STORE"

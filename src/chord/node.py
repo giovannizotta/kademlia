@@ -1,6 +1,6 @@
 from __future__ import annotations
 from common.utils import *
-from common.node import DHTNode, Packet, packet_service, Request
+from common.node import DHTNode, Node, Packet, PacketType, Request
 from dataclasses import dataclass, field
 
 
@@ -14,13 +14,39 @@ class ChordNode(DHTNode):
         super().__post_init__()
         self.ft: List[ChordNode] = [self] * self.log_world_size
 
-    @packet_service
-    def get_value(self, packet: Packet, recv_req: Request) -> None:
-        super().get_value(packet, recv_req)
+    def manage_packet(self, packet: Packet):
+        if packet.ptype == PacketType.FIND_NODE:
+            pass
+        elif packet.ptype == PacketType.ASK_SUCC:
+            pass
+        elif packet.ptype == PacketType.SET_SUCC:
+            pass
+        elif packet.ptype == PacketType.SET_PRED:
+            pass
 
-    @packet_service
-    def set_value(self, packet: Packet, recv_req: Request) -> None:
-        super().set_value(packet, recv_req)
+    def _check_best_node(self, packet: Packet, best_node: ChordNode) -> \
+            Tuple[ChordNode, bool, Optional[Request]]:
+        tmp = packet.data["best_node"]
+        found = best_node is tmp
+        best_node = tmp
+        if not found:
+            self.log(
+                f"received answer, packet: {packet} -> forwarding to {best_node}")
+            sent_req = self.send_req(best_node, packet)
+        else:
+            self.log(
+                f"received answer, packet: {packet} -> found! It's {best_node}")
+            sent_req = None
+        return best_node, found, sent_req
+
+    def get_node(
+        self,
+        packet: Packet,
+    ) -> None:
+        key = packet.data["key"]
+        best_node, _ = self._get_best_node(key)
+        packet.data["best_node"] = best_node
+        self.send_resp(recv_req, packet)
 
     @property
     def succ(self) -> Optional[ChordNode]:
@@ -57,37 +83,12 @@ class ChordNode(DHTNode):
             best_node, found = self._get_best_node(key)
 
         if not found:
-            sent_req = self.send_req(best_node.on_find_node_request, packet)
+            sent_req = self.send_req(best_node, packet)
         else:
             sent_req = None
         return best_node, found, sent_req
 
-    @packet_service
-    def _check_best_node(self, packet: Packet, best_node: ChordNode) -> \
-            Tuple[ChordNode, bool, Optional[Request]]:
-        tmp = packet.data["best_node"]
-        found = best_node is tmp
-        best_node = tmp
-        if not found:
-            self.log(
-                f"received answer, packet: {packet} -> forwarding to {best_node}")
-            sent_req = self.send_req(best_node.on_find_node_request, packet)
-        else:
-            self.log(
-                f"received answer, packet: {packet} -> found! It's {best_node}")
-            sent_req = None
-        return best_node, found, sent_req
-
-    @packet_service
-    def on_find_node_request(
-        self,
-        packet: Packet,
-        recv_req: Request
-    ) -> None:
-        key = packet.data["key"]
-        best_node, _ = self._get_best_node(key)
-        packet.data["best_node"] = best_node
-        self.send_resp(recv_req, packet)
+    
 
     def find_node(
         self,
@@ -95,7 +96,7 @@ class ChordNode(DHTNode):
         ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[Tuple[Optional[DHTNode], int]]:
         self.log(f"start looking for node holding {key}")
-        packet = Packet(data=dict(key=key))
+        packet = Packet(ptype=PacketType.FIND_NODE, data=dict(key=key))
         best_node, found, sent_req = self._get_best_node_and_forward(key, packet, ask_to)
         hops = 0
         while not found:
@@ -105,7 +106,6 @@ class ChordNode(DHTNode):
 
         return best_node, hops
 
-    @packet_service
     def get_successor(
         self,
         packet: Packet,
@@ -115,7 +115,6 @@ class ChordNode(DHTNode):
         packet.data["succ"] = self.succ
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def set_successor(
         self,
         packet: Packet,
@@ -125,7 +124,6 @@ class ChordNode(DHTNode):
         self.log(f"asked to change my successor to {self.succ}")
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def get_predecessor(
         self,
         packet: Packet,
@@ -135,7 +133,6 @@ class ChordNode(DHTNode):
         packet.data["pred"] = self.pred
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def set_predecessor(
         self,
         packet: Packet,
@@ -145,27 +142,26 @@ class ChordNode(DHTNode):
         self.log(f"asked to change my predecessor to {self.pred}")
         self.send_resp(recv_req, packet)
 
-    @packet_service
     def _read_succ_resp(self, packet: Packet) -> Optional[ChordNode]:
         self.log(f"got answer for node's succ, it's {packet.data['succ']}")
         succ: Optional[ChordNode] = packet.data["succ"]
         return succ
 
-    def ask_successor(self, to: ChordNode, packet: Packet) -> Request:
+    def ask_successor(self, to: ChordNode) -> Request:
         self.log(f"asking {to} for it's successor")
-        sent_req = self.send_req(to.get_successor, packet)
+        packet = Packet(ptype=PacketType.ASK_SUCC)
+        sent_req = self.send_req(to, packet)
         return sent_req
 
     def _ask_set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> Tuple[Request, Request]:
         self.log(f"asking {pred} to set me as its successor")
         self.log(f"asking {succ} to set me as its predecessor")
-        packet_pred = Packet(data=dict(succ=self))
-        packet_succ = Packet(data=dict(pred=self))
-        sent_req_pred = self.send_req(pred.set_successor, packet_pred)
-        sent_req_succ = self.send_req(succ.set_predecessor, packet_succ)
+        packet_pred = Packet(ptype=PacketType.SET_PRED, data=dict(succ=self))
+        packet_succ = Packet(ptype=PacketType.SET_SUCC, data=dict(pred=self))
+        sent_req_pred = self.send_req(pred, packet_pred)
+        sent_req_succ = self.send_req(succ, packet_succ)
         return sent_req_pred, sent_req_succ
 
-    @packet_service
     def _set_pred_succ(self, pred: ChordNode, succ: ChordNode) -> None:
         self.log(f"setting my succ to {succ}")
         self.log(f"setting my pred to {pred}")
@@ -177,8 +173,7 @@ class ChordNode(DHTNode):
         # ask to to find_node
         node, hops = yield from self.find_node(self.id, ask_to=to)
         # ask node its successor
-        packet = Packet()
-        sent_req = self.ask_successor(node, packet)
+        sent_req = self.ask_successor(node)
         # wait for a response
         packet = yield from self.wait_resp(sent_req)
         # serve response
@@ -208,7 +203,7 @@ class ChordNode(DHTNode):
 
     def ask_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(f"asking {to} for the key {packet.data['key']}")
-        sent_req = self.send_req(to.get_value, packet)
+        sent_req = self.send_req(to, packet)
         return sent_req
 
     def reply_find_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
@@ -230,7 +225,7 @@ class ChordNode(DHTNode):
     def ask_set_value(self, to: ChordNode, packet: Packet) -> Request:
         self.log(
             f"asking {to} to set the value {packet.data['value']} for the key {packet.data['key']}")
-        sent_req = self.send_req(to.set_value, packet)
+        sent_req = self.send_req(to, packet)
         return sent_req
 
     def reply_store_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
