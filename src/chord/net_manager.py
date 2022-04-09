@@ -1,6 +1,7 @@
 from common.net_manager import *
-from chord.node import ChordNode
 from common.utils import *
+
+from chord.node import ChordNode
 
 
 class ChordNetManager(NetManager):

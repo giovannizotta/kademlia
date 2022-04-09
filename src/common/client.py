@@ -14,10 +14,11 @@ class Client(Node):
             pass
         else:
             pass
-        
+
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
         """Perform a find_value request and wait for the response"""
-        self.log(f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
+        self.log(
+            f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
         before = self.env.now
         key_hash = self._compute_key(key, self.log_world_size)
         packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key_hash))
@@ -29,7 +30,8 @@ class Client(Node):
             if hops == -1:
                 # the node responded but the process timed out
                 raise DHTTimeoutError()
-            self.log(f"Received value: DHT[{key}] = {value}", level=logging.INFO)
+            self.log(
+                f"Received value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
             self.datacollector.client_requests.append((after - before, hops))
         except DHTTimeoutError:
@@ -39,10 +41,12 @@ class Client(Node):
 
     def store_value(self, ask_to: DHTNode, key: str, value: int) -> SimpyProcess[None]:
         """Perform a store_value request and wait for the response"""
-        self.log(f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
+        self.log(
+            f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
         before = self.env.now
         key_hash = self._compute_key(key, self.log_world_size)
-        packet = Packet(ptype=PacketType.STORE_VALUE, data=dict(key=key_hash, value=value))
+        packet = Packet(ptype=PacketType.STORE_VALUE,
+                        data=dict(key=key_hash, value=value))
         sent_req = self.send_req(ask_to, packet)
         try:
             packet = yield from self.wait_resp(sent_req)

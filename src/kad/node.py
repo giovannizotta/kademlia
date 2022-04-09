@@ -1,10 +1,13 @@
 from __future__ import annotations
-from common.utils import *
-from common.node import DHTNode, PacketType, Packet, Request
-from math import log2
-from dataclasses import dataclass
-from collections.abc import Sequence
+
 from collections import defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass
+from math import log2
+
+from common.node import DHTNode, Packet, PacketType, Request
+from common.utils import *
+
 
 def decide_value(packets: List[Packet]):
     # give the most popular value
@@ -13,9 +16,10 @@ def decide_value(packets: List[Packet]):
         if d[packet.data["value"]] is not None:
             d[packet.data["value"]] += 1
     if d:
-        return max(d, key = lambda k: d[k])
-    else: 
+        return max(d, key=lambda k: d[k])
+    else:
         return None
+
 
 @dataclass
 class KadNode(DHTNode):
@@ -44,7 +48,8 @@ class KadNode(DHTNode):
 
     def get_node(self, packet: Packet) -> None:
         neighs = self.pick_neighbors(packet.data["key"])
-        new_packet = Packet(ptype=PacketType.GET_NODE_REPLY, data=dict(neighbors=neighs), event=packet.event) 
+        new_packet = Packet(ptype=PacketType.GET_NODE_REPLY,
+                            data=dict(neighbors=neighs), event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode], contacted: Set[KadNode]) -> bool:
@@ -54,8 +59,8 @@ class KadNode(DHTNode):
                 current_set.add(neigh)
         # print(current_set)
 
-        candidates = sorted(current_set, key=lambda x: KadNode._compute_distance(
-            x.id, key, self.log_world_size))
+        candidates = sorted(
+            current_set, key=lambda x: x._compute_distance(key))
         candidates = candidates[:self.k]
         if candidates != current and not all(c in contacted for c in candidates):
             found = False
@@ -64,12 +69,13 @@ class KadNode(DHTNode):
                 current.append(c)
         else:
             found = True
-        return found 
+        return found
 
     def ask(self, to: List[KadNode], packet: Packet, type: PacketType) -> List[Request]:
         requests = []
         for node in to:
-            self.log(f"asking {type} to {node} for the key {packet.data['key']} {packet.data.get('value', '')}")
+            self.log(
+                f"asking {type} to {node} for the key {packet.data['key']} {packet.data.get('value', '')}")
             new_packet = Packet(ptype=type, data=packet.data)
             sent_req = self.send_req(packet.sender, new_packet)
             requests.append(sent_req)
@@ -86,9 +92,10 @@ class KadNode(DHTNode):
         except DHTTimeoutError:
             if not packets:
                 hops = -1
-        
+
         value = decide_value(packets)
-        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(value=value, hops=hops), event=packet.event)
+        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(
+            value=value, hops=hops), event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
@@ -99,12 +106,13 @@ class KadNode(DHTNode):
             yield from self.wait_resps(requests, [])
         except DHTTimeoutError:
             hops = -1
-        
-        new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY, data=dict(hops=hops), event=packet.event)
+
+        new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY,
+                            data=dict(hops=hops), event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def get_bucket_for(self, key: int) -> int:
-        dst = KadNode._compute_distance(key, self.id, self.log_world_size)
+        dst = self._compute_distance(key)
         return dst if dst == 0 else int(log2(dst))
 
     def update_bucket(self, node: KadNode) -> None:
@@ -138,13 +146,12 @@ class KadNode(DHTNode):
         while not found:
             requests = self.ask_neighbors(current, contacted, key)
             hop += 1
-            assert len(requests) > 0, f"{hop}, {current}, {old_current}, {contacted}"
+            assert requests, f"{hop}, {current}, {old_current}, {contacted}"
             packets: List[Packet] = []
             try:
                 yield from self.wait_resps(requests, packets)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
-
 
             old_current = current.copy()
             # print(f"Received {packets}")
@@ -160,8 +167,7 @@ class KadNode(DHTNode):
             nodes.add(neigh)
             if len(nodes) == self.k:
                 break
-        return sorted(nodes, key=lambda x: KadNode._compute_distance(x.id, key, self.log_world_size))[:self.k]
-
+        return sorted(nodes, key=lambda x: x._compute_distance(key))[:self.k]
 
     def ask_neighbors(self, current: List[KadNode], contacted: Set[KadNode], key: int) -> List[Request]:
         # find nodes to contact
@@ -182,10 +188,8 @@ class KadNode(DHTNode):
             requests.append(sent_req)
         return requests
 
-    @staticmethod
-    def _compute_distance(key1: int, key2: int, log_world_size: int) -> int:
-        # keys are log_world_size bits long
-        return key1 ^ key2
+    def _compute_distance(self, from_key: int) -> int:
+        return self.id ^ from_key
 
     def join_network(self, to: DHTNode) -> SimpyProcess[None]:
         to = cast(KadNode, to)

@@ -1,18 +1,21 @@
+import json
+import logging
+from argparse import ArgumentParser, Namespace
+
+from tqdm import tqdm
+
+from chord.net_manager import ChordNetManager
 from common.node import DataCollector
-from common.utils import *
 from common.simulator import Simulator
 from common.utils import RandomBatchGenerator as RBG
+from common.utils import *
 from kad.net_manager import KadNetManager
-from chord.net_manager import ChordNetManager
-from argparse import ArgumentParser, Namespace
-from tqdm import tqdm
-import logging, json
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
 WORLD_SIZE = 160
 N_KEYS = 10**4
-QUEUE_CAPACITY=100
+QUEUE_CAPACITY = 100
 
 
 def parse_args() -> Namespace:
@@ -31,7 +34,7 @@ def parse_args() -> Namespace:
                     help="Client arrival rate (lower is faster)")
     ap.add_argument("-f", "--file", type=str, required=True,
                     help="File in which to save data")
-    ap.add_argument("-e", "--ext", default="pdf", choices=["pdf", "png"], 
+    ap.add_argument("-e", "--ext", default="pdf", choices=["pdf", "png"],
                     help="Extension for network plots")
     ap.add_argument("-a", "--alpha", type=int, default=3,
                     help="Alpha value for Kademlia")
@@ -66,14 +69,17 @@ def main() -> None:
     datacollector = DataCollector()
     keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
     if args.dht == Simulator.KAD:
-        net_manager = KadNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
+        net_manager = KadNetManager(
+            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
-        net_manager = ChordNetManager(join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity)
+        net_manager = ChordNetManager(
+            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity)
 
-    simulator = Simulator(join_env, "Simulator", net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext)
+    simulator = Simulator(join_env, "Simulator", net_manager,
+                          keys, args.plot, mean_arrival=args.rate, ext=args.ext)
     join_env.process(simulator.simulate_join())
     join_env.run()
-    
+
     # forget data collected during the join
     datacollector.clear()
     # start the simulation
@@ -85,6 +91,7 @@ def main() -> None:
     # dump collected data
     with open(args.file, 'w', encoding='utf8') as f:
         json.dump(datacollector.to_dict(), f, separators=(',', ':'))
+
 
 if __name__ == "__main__":
     main()

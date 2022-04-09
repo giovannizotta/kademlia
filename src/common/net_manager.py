@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
-from common.node import DHTNode, DataCollector
-from common.utils import *
-import simpy
-import networkx as nx
-import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
+
+import matplotlib.pyplot as plt
+import networkx as nx
+import simpy
+
+from common.node import DataCollector, DHTNode
+from common.utils import *
 
 
 @dataclass

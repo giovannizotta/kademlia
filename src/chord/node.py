@@ -66,8 +66,7 @@ class ChordNode(DHTNode):
         self._pred = node
 
     def _get_best_node(self, key: int) -> Tuple[ChordNode, bool]:
-        best_node = min(self.ft, key=lambda node: ChordNode._compute_distance(
-            node.id, key, self.log_world_size))
+        best_node = min(self.ft, key=lambda node: node._compute_distance(key))
         found = best_node is self
         self.log(
             f"asked for best node for key {key}, it's {best_node if not found else 'me'}")
@@ -88,8 +87,6 @@ class ChordNode(DHTNode):
             sent_req = None
         return best_node, found, sent_req
 
-    
-
     def find_node(
         self,
         key: int,
@@ -97,7 +94,8 @@ class ChordNode(DHTNode):
     ) -> SimpyProcess[Tuple[Optional[DHTNode], int]]:
         self.log(f"start looking for node holding {key}")
         packet = Packet(ptype=PacketType.FIND_NODE, data=dict(key=key))
-        best_node, found, sent_req = self._get_best_node_and_forward(key, packet, ask_to)
+        best_node, found, sent_req = self._get_best_node_and_forward(
+            key, packet, ask_to)
         hops = 0
         while not found:
             hops += 1
@@ -186,11 +184,9 @@ class ChordNode(DHTNode):
         # I do my rewiring
         yield from self._set_pred_succ(node, node_succ)
 
-    @classmethod
-    def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
-        dst = (key2 - key1)
-        ws: int = 2**log_world_size
-        return dst % ws
+    def _compute_distance(self, from_key: int) -> int:
+        dst = (from_key - self.id)
+        return dst % (2**self.log_world_size)
 
     def _update_ft(self, pos: int, node: ChordNode) -> None:
         self.ft[pos] = node
@@ -206,7 +202,7 @@ class ChordNode(DHTNode):
         sent_req = self.send_req(to, packet)
         return sent_req
 
-    def reply_find_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
+    def reply_find_value(self, recv_req: Request, packet: Packet, hops: int) -> None:
         packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
 
@@ -228,7 +224,7 @@ class ChordNode(DHTNode):
         sent_req = self.send_req(to, packet)
         return sent_req
 
-    def reply_store_value(self, recv_req: Request, packet: Packet, hops:int) -> None:
+    def reply_store_value(self, recv_req: Request, packet: Packet, hops: int) -> None:
         packet.data["hops"] = hops
         self.send_resp(recv_req, packet)
 

@@ -1,7 +1,8 @@
 from common.net_manager import *
-from kad.node import KadNode
 from common.utils import *
 from networkx.drawing.nx_pydot import pydot_layout
+
+from kad.node import KadNode
 
 
 def get_key(id: int) -> str:
@@ -65,6 +66,7 @@ class Trie(nx.DiGraph):
                 new_trie.add(child)
                 stack.append(child)
         return new_trie
+
 
 @dataclass
 class KadNetManager(NetManager):

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import *
 
 import numpy as np
 import simpy
 import simpy.events
-from dataclasses import dataclass, field
 
 # generic from hashable type
 HashableT = TypeVar("HashableT", bound=Hashable)
@@ -22,9 +23,11 @@ Request = NewType("Request", simpy.Event)
 
 Method = Callable[..., T]
 
+
 class DHTTimeoutError(Exception):
     """Error raised when a request times out"""
     pass
+
 
 class Singleton(type):
     __instances: Dict = {}
@@ -42,8 +45,10 @@ class RandomBatchGenerator(metaclass=Singleton):
 
     The random samples are precomputed in batch and refreshed on demand.
     """
-    _exponentials: Dict[int, Iterator[float]] = field(repr=False, init=False, default_factory=dict)
-    _choices: Dict[int, Iterator[int]] = field(repr=False, init=False, default_factory=dict)
+    _exponentials: Dict[int, Iterator[float]] = field(
+        repr=False, init=False, default_factory=dict)
+    _choices: Dict[int, Iterator[int]] = field(
+        repr=False, init=False, default_factory=dict)
     _rng: np.random.Generator = field(init=False, repr=False)
     seed: int = 420
     precision: int = 4

@@ -1,32 +1,35 @@
 from __future__ import annotations
-from common.utils import *
-from abc import abstractmethod
-from dataclasses import dataclass, field
+
 import hashlib
-from bitstring import BitArray
+from abc import abstractmethod
 from collections import defaultdict
-from enum import Enum
+from dataclasses import dataclass, field
+from enum import Enum, auto
+
+from bitstring import BitArray
+
+from common.utils import *
+
 
 class PacketType(Enum):
-    FIND_NODE = 1
-    SET_PRED = 2
-    SET_SUCC = 3
-    ASK_SUCC = 4
-    FIND_VALUE_REPLY = 5
-    STORE_VALUE_REPLY = 6
-    GET_NODE = 7
-    GET_NODE_REPLY = 8
-    FIND_VALUE = 9
-    STORE_VALUE = 10
-    GET_VALUE = 11
-    SET_VALUE = 12
-    GET_VALUE_REPLY = 13
-    SET_VALUE_REPLY = 14
+    FIND_NODE = auto()
+    SET_PRED = auto()
+    SET_SUCC = auto()
+    ASK_SUCC = auto()
+    FIND_VALUE_REPLY = auto()
+    STORE_VALUE_REPLY = auto()
+    GET_NODE = auto()
+    GET_NODE_REPLY = auto()
+    FIND_VALUE = auto()
+    STORE_VALUE = auto()
+    GET_VALUE = auto()
+    SET_VALUE = auto()
+    GET_VALUE_REPLY = auto()
+    SET_VALUE_REPLY = auto()
 
-    @staticmethod
-    def is_reply(packet: Packet):
-        reply_types = [PacketType.FIND_VALUE_REPLY, PacketType.GET_NODE_REPLY, PacketType.SET_VALUE_REPLY, PacketType.STORE_VALUE_REPLY]
-        return packet.ptype in reply_types
+    def is_reply(self):
+        return "REPLY" in self.name
+
 
 @dataclass
 class Packet():
@@ -41,6 +44,7 @@ class Packet():
     def __post_init__(self) -> None:
         self.id = Packet.instances
         Packet.instances += 1
+
 
 @dataclass
 class DataCollector:
@@ -82,7 +86,7 @@ class Node(Loggable):
 
     @abstractmethod
     def manage_packet(self, packet: Packet):
-        if(PacketType.is_reply(packet)):
+        if packet.ptype.is_reply():
             assert packet.event is not None
             packet.event.succeed(value=packet)
 
@@ -211,10 +215,10 @@ class DHTNode(Node):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.ht = dict()
-    
+
     @abstractmethod
     def manage_packet(self, packet: Packet):
-        super().manage_packet(packet) 
+        super().manage_packet(packet)
         if packet.ptype == PacketType.GET_NODE:
             self.get_node(packet)
         elif packet.ptype == PacketType.FIND_VALUE:
@@ -265,11 +269,6 @@ class DHTNode(Node):
         """
         pass
 
-    @classmethod
-    @abstractmethod
-    def _compute_distance(cls, key1: int, key2: int, log_world_size: int) -> int:
-        pass
-
     def get_value(self, packet: Packet) -> None:
         """Get value associated to a given key in the node's hash table
 
@@ -278,7 +277,8 @@ class DHTNode(Node):
             recv_req (Request): The request event to answer to
         """
         key = packet.data["key"]
-        new_packet = Packet(ptype=PacketType.GET_VALUE_REPLY, data=dict(value=self.ht.get(key)), event=packet.event)
+        new_packet = Packet(ptype=PacketType.GET_VALUE_REPLY, data=dict(
+            value=self.ht.get(key)), event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def set_value(self, packet: Packet) -> None:
@@ -290,7 +290,8 @@ class DHTNode(Node):
         """
         key = packet.data["key"]
         self.ht[key] = packet.data["value"]
-        new_packet = Packet(ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
+        new_packet = Packet(
+            ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     @abstractmethod
@@ -311,4 +312,8 @@ class DHTNode(Node):
             packet (Packet): The packet containing the key and the value
             recv_req (Request): The request event to answer to
         """
+        pass
+
+    @abstractmethod
+    def _compute_distance(self, from_key: int) -> int:
         pass

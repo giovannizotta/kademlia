@@ -1,8 +1,9 @@
-from common.node import DHTNode
-from common.utils import *
+import logging
+
 from common.client import Client
 from common.net_manager import NetManager
-import logging
+from common.node import DHTNode
+from common.utils import *
 
 
 @dataclass
@@ -74,7 +75,8 @@ class Simulator(Loggable):
         self.log(f"Updates are done for all nodes.", level=logging.INFO)
 
         if self.plot:
-            self.net_manager.print_network(self.net_manager.nodes[10], self.ext)
+            self.net_manager.print_network(
+                self.net_manager.nodes[10], self.ext)
 
     def change_env(self, env: simpy.Environment) -> None:
         self.env = env
