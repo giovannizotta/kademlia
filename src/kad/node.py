@@ -71,12 +71,12 @@ class KadNode(DHTNode):
             found = True
         return found
 
-    def ask(self, to: List[KadNode], packet: Packet, type: PacketType) -> List[Request]:
+    def ask(self, to: List[KadNode], packet: Packet, ptype: PacketType) -> List[Request]:
         requests = list()
         for node in to:
             self.log(
                 f"asking {type} to {node} for the key {packet.data['key']} {packet.data.get('value', '')}")
-            new_packet = Packet(ptype=type, data=packet.data)
+            new_packet = Packet(ptype=ptype, data=packet.data)
             sent_req = self.send_req(cast(Node, packet.sender), new_packet)
             requests.append(sent_req)
         return requests
@@ -84,9 +84,9 @@ class KadNode(DHTNode):
     def find_value(self, packet: Packet) -> SimpyProcess[None]:
         key = packet.data["key"]
         packets: List[Packet] = list()
-        nodes, hops = yield from self.find_node(key)
 
         try:
+            nodes, hops = yield from self.find_node(key)
             requests = self.ask(nodes, packet, PacketType.GET_VALUE)
             yield from self.wait_resps(requests, packets)
         except DHTTimeoutError:

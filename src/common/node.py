@@ -14,8 +14,13 @@ from common.utils import *
 class PacketType(Enum):
     FIND_NODE = auto()
     SET_PRED = auto()
+    SET_PRED_REPLY = auto()
     SET_SUCC = auto()
-    ASK_SUCC = auto()
+    SET_SUCC_REPLY = auto()
+    GET_SUCC = auto()
+    GET_SUCC_REPLY = auto()
+    GET_PRED = auto()
+    GET_PRED_REPLY = auto()
     FIND_VALUE_REPLY = auto()
     STORE_VALUE_REPLY = auto()
     GET_NODE = auto()
@@ -29,7 +34,6 @@ class PacketType(Enum):
 
     def is_reply(self):
         return "REPLY" in self.name
-
 
 @dataclass
 class Packet():
@@ -98,7 +102,7 @@ class Node(Loggable):
         with self.in_queue.request() as res:
             self.datacollector.queue_load[self.name].append(
                 (self.env.now, len(self.in_queue.queue)))
-            self.log("Trying to acquire queue")
+            self.log(f"Trying to acquire queue, position: {len(self.in_queue.queue)}")
             yield res
             self.log("Queue acquired")
             service_time = self.rbg.get_exponential(self.mean_service_time)
