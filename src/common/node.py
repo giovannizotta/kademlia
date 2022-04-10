@@ -80,7 +80,7 @@ class Node(Loggable):
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: simpy.Resource = field(init=False, repr=False)
     queue_capacity: int = field(repr=False, default=100)
-    mean_service_time: float = field(repr=False, default=0.1)
+    mean_service_time: float = field(repr=False, default=10)
 
     @abstractmethod
     def __post_init__(self) -> None:
@@ -90,18 +90,24 @@ class Node(Loggable):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
+        self.log(f"node, serving {packet}")
         if packet.ptype.is_reply():
             assert packet.event is not None
             packet.event.succeed(value=packet)
 
+    @abstractmethod
+    def collect_load(self):
+        pass
+
     def recv_packet(self, packet: Packet) -> SimpyProcess[None]:
         # Manage network buffer and call manage_packet
+        self.log(f"{self.name} received {packet}")
         if len(self.in_queue.queue) == self.queue_capacity:
+            self.log(f"Queue is full, dropping packet", level=logging.WARNING)
             return
 
         with self.in_queue.request() as res:
-            self.datacollector.queue_load[self.name].append(
-                (self.env.now, len(self.in_queue.queue)))
+            self.collect_load()
             self.log(f"Trying to acquire queue, position: {len(self.in_queue.queue)}")
             yield res
             self.log("Queue acquired")
@@ -109,9 +115,9 @@ class Node(Loggable):
             yield self.env.timeout(service_time)
 
         self.log("Queue released")
+        self.collect_load()
+
         self.manage_packet(packet)
-        self.datacollector.queue_load[self.name].append(
-            (self.env.now, len(self.in_queue.queue)))
 
     def new_req(self) -> Request:
         """Generate a new request event"""
@@ -122,6 +128,7 @@ class Node(Loggable):
         transmission_time = self.rbg.get_exponential(
             self.mean_transmission_delay)
         transmission_delay = self.env.timeout(transmission_time)
+        self.log(f"Transmission delay: {transmission_delay}")
         yield transmission_delay
 
     def _send_msg(self, dest: Node, packet: Packet) -> SimpyProcess[None]:
@@ -212,7 +219,6 @@ class Node(Loggable):
 @dataclass
 class DHTNode(Node):
     mean_service_time: float = field(repr=False, default=0.1)
-
     ht: Dict[int, Any] = field(init=False, repr=False)
 
     @abstractmethod
@@ -222,17 +228,21 @@ class DHTNode(Node):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
+        self.log(f"dhtnode, serving {packet}")
         super().manage_packet(packet)
         if packet.ptype == PacketType.GET_NODE:
             self.get_node(packet)
         elif packet.ptype == PacketType.FIND_VALUE:
-            self.find_value(packet)
+            self.env.process(self.find_value(packet))
         elif packet.ptype == PacketType.STORE_VALUE:
-            self.store_value(packet)
+            self.env.process(self.store_value(packet))
         elif packet.ptype == PacketType.SET_VALUE:
             self.set_value(packet)
         elif packet.ptype == PacketType.GET_VALUE:
             self.get_value(packet)
+
+    def collect_load(self):
+        self.datacollector.queue_load[self.name].append((self.env.now, len(self.in_queue.queue)))
 
     def change_env(self, env: simpy.Environment) -> None:
         self.env = env
@@ -304,8 +314,8 @@ class DHTNode(Node):
 
         Args:
             packet (Packet): The packet containing the asked key
-            recv_req (Request): The request event to answer to
         """
+        self.log(f"find_value in DHTNode")
         pass
 
     @abstractmethod
@@ -314,7 +324,6 @@ class DHTNode(Node):
 
         Args:
             packet (Packet): The packet containing the key and the value
-            recv_req (Request): The request event to answer to
         """
         pass
 

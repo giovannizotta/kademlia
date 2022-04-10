@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import log2
 
 from common.node import Node, DHTNode, Packet, PacketType, Request
+from common.client import Client
 from common.utils import *
 
 
@@ -38,6 +39,8 @@ class KadNode(DHTNode):
         self.buckets = [[] for _ in range(self.log_world_size)]
 
     def process_sender(self: KadNode, packet: Packet) -> None:
+        if isinstance(packet.sender, Client):
+            return
         sender = cast(KadNode, packet.sender)
         self.log(f"processing sender {sender.name}")
         self.update_bucket(sender)
@@ -75,16 +78,16 @@ class KadNode(DHTNode):
         requests = list()
         for node in to:
             self.log(
-                f"asking {type} to {node} for the key {packet.data['key']} {packet.data.get('value', '')}")
+                f"asking {ptype.name} to {node.name} for the key {packet.data['key']} {packet.data.get('value', '')}")
             new_packet = Packet(ptype=ptype, data=packet.data)
-            sent_req = self.send_req(cast(Node, packet.sender), new_packet)
+            sent_req = self.send_req(node, new_packet)
             requests.append(sent_req)
         return requests
 
     def find_value(self, packet: Packet) -> SimpyProcess[None]:
+        self.log(f"Serving {packet}")
         key = packet.data["key"]
         packets: List[Packet] = list()
-
         try:
             nodes, hops = yield from self.find_node(key)
             requests = self.ask(nodes, packet, PacketType.GET_VALUE)
@@ -94,11 +97,13 @@ class KadNode(DHTNode):
                 hops = -1
 
         value = decide_value(packets)
+        self.log(f"decided value {value}")
         new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(
             value=value, hops=hops), event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
 
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
+        self.log(f"Serving {packet}")
         key = packet.data["key"]
         nodes, hops = yield from self.find_node(key)
         try:

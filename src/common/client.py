@@ -7,6 +7,9 @@ class Client(Node):
         super().__post_init__()
         self.max_timeout = self.max_timeout * 6
 
+    def collect_load(self):
+        pass
+
     def manage_packet(self, packet: Packet) -> None:
         return super().manage_packet(packet)
         

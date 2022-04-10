@@ -135,7 +135,7 @@ def get_avg_load(load: List[Tuple[float, int]], until: float = np.inf) -> float:
 def get_load_dist(data, dht, time):
     loads = []
     for _, load in data[dht].queue_load.items():
-        avg_load= get_avg_load(load, until=time)
+        avg_load = get_avg_load(load, until=time)
         loads.append(avg_load)
     loads = np.array(loads)
     loads = loads[loads < np.quantile(loads, 0.95)]

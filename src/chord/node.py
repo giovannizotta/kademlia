@@ -15,6 +15,7 @@ class ChordNode(DHTNode):
         self.ft: List[ChordNode] = [self] * self.log_world_size
 
     def manage_packet(self, packet: Packet):
+        self.log(f"chord, serving {packet}")
         super().manage_packet(packet)
         if packet.ptype == PacketType.GET_SUCC:
             self.get_successor(packet)
@@ -184,6 +185,7 @@ class ChordNode(DHTNode):
         return self.send_req(to, packet)
     
     def find_value(self, packet: Packet) -> SimpyProcess[None]:
+        self.log(f"find_value in ChordNode, serving {packet}")
         original_sender = packet.sender
         original_event = packet.event
         key = packet.data["key"]
@@ -201,6 +203,7 @@ class ChordNode(DHTNode):
         self.send_resp(original_sender, new_packet)
 
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
+        self.log(f"Serving {packet}")
         original_sender = packet.sender
         original_event = packet.event
         key = packet.data["key"]
