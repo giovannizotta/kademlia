@@ -1,5 +1,3 @@
-import logging
-
 from common.client import Client
 from common.net_manager import NetManager
 from common.node import DHTNode
@@ -11,7 +9,7 @@ class Simulator(Loggable):
     net_manager: NetManager
     keys: Sequence[str]
     plot: bool
-    max_value: int = 10**9
+    max_value: int = 10 ** 9
     mean_arrival: float = 0.1
     ext: str = "pdf"
     capacity: int = 100

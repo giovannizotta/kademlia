@@ -1,7 +1,7 @@
-from common.net_manager import *
-from common.utils import *
 from networkx.drawing.nx_pydot import pydot_layout
 
+from common.net_manager import *
+from common.utils import *
 from kad.node import KadNode
 
 

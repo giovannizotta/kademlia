@@ -12,13 +12,13 @@ class Client(Node):
 
     def manage_packet(self, packet: Packet) -> None:
         return super().manage_packet(packet)
-        
+
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
         """Perform a find_value request and wait for the response"""
         self.log(
             f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
         before = self.env.now
-        key_hash = self._compute_key(key, self.log_world_size)
+        key_hash = self._compute_key(key)
         packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key_hash))
         sent_req = self.send_req(ask_to, packet)
         try:
@@ -42,7 +42,7 @@ class Client(Node):
         self.log(
             f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
         before = self.env.now
-        key_hash = self._compute_key(key, self.log_world_size)
+        key_hash = self._compute_key(key)
         packet = Packet(ptype=PacketType.STORE_VALUE,
                         data=dict(key=key_hash, value=value))
         sent_req = self.send_req(ask_to, packet)

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-from abc import abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import auto
 
 from bitstring import BitArray
 
@@ -34,6 +32,7 @@ class PacketType(Enum):
 
     def is_reply(self):
         return "REPLY" in self.name
+
 
 @dataclass
 class Packet():
@@ -71,6 +70,18 @@ class DataCollector:
         return DataCollector(**dct)
 
 
+def decide_value(packets: List[Packet]) -> Optional[Any]:
+    # give the most popular value
+    d: DefaultDict[Any, int] = defaultdict(int)
+    for packet in packets:
+        if d[packet.data["value"]] is not None:
+            d[packet.data["value"]] += 1
+    if d:
+        return max(d, key=lambda k: d[k])
+    else:
+        return None
+
+
 @dataclass
 class Node(Loggable):
     """Network node"""
@@ -85,7 +96,7 @@ class Node(Loggable):
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.id = Node._compute_key(self.name, self.log_world_size)
+        self.id = self._compute_key(self.name)
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
     @abstractmethod
@@ -208,11 +219,10 @@ class Node(Loggable):
         yield from self.wait_resps([sent_req], ans)
         return ans.pop()
 
-    @staticmethod
-    def _compute_key(key_str: str, log_world_size: int) -> int:
+    def _compute_key(self, key_str: str) -> int:
         digest = hashlib.sha256(bytes(key_str, "utf-8")).hexdigest()
         bindigest = BitArray(hex=digest).bin
-        subbin = bindigest[:log_world_size]
+        subbin = bindigest[:self.log_world_size]
         return cast(int, BitArray(bin=subbin).uint)
 
 
@@ -250,10 +260,10 @@ class DHTNode(Node):
 
     @abstractmethod
     def find_node(
-        self,
-        key: int,
-        ask_to: Optional[DHTNode] = None
-    ) -> SimpyProcess[Optional[DHTNode]]:
+            self,
+            key: int,
+            ask_to: Optional[DHTNode] = None
+    ) -> SimpyProcess[List[simpy.Process]]:
         """Iteratively find the closest node(s) to the given key
 
         Args:
@@ -264,8 +274,8 @@ class DHTNode(Node):
 
     @abstractmethod
     def get_node(
-        self,
-        packet: Packet
+            self,
+            packet: Packet
     ) -> None:
         """Answer with the node(s) closest to the key among the known ones
 
@@ -308,24 +318,54 @@ class DHTNode(Node):
             ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
 
-    @abstractmethod
+    def ask(self, to: List[DHTNode], packet: Packet, ptype: PacketType) -> List[Request]:
+        requests = list()
+        for node in to:
+            if node:
+                self.log(
+                    f"asking {ptype.name} to {node.name} for {packet.data}")
+                new_packet = Packet(ptype=ptype, data=packet.data)
+                sent_req = self.send_req(node, new_packet)
+                requests.append(sent_req)
+        return requests
+
+    def unzip_find(self, key: int, function: Callable) -> SimpyProcess[Tuple[List[DHTNode], int]]:
+        processes = yield from self.find_node(key)
+        ans = yield function(processes)
+        best_nodes, hops = zip(*[ans[p] for p in processes])
+        return list(best_nodes), max(hops)
+
     def find_value(self, packet: Packet) -> SimpyProcess[None]:
-        """Iteratively find the value associated to a given key
+        self.log(f"Serving {packet}")
+        key = packet.data["key"]
+        packets: List[Packet] = list()
+        try:
+            nodes, hops = yield from self.unzip_find(key, self.env.all_of)
+            requests = self.ask(nodes, packet, PacketType.GET_VALUE)
+            yield from self.wait_resps(requests, packets)
+        except DHTTimeoutError:
+            if not packets:
+                hops = -1
 
-        Args:
-            packet (Packet): The packet containing the asked key
-        """
-        self.log(f"find_value in DHTNode")
-        pass
+        value = decide_value(packets)
+        self.log(f"decided value {value}")
+        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(
+            value=value, hops=hops), event=packet.event)
+        self.send_resp(cast(Node, packet.sender), new_packet)
 
-    @abstractmethod
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
-        """Iteratively store the given value associated to the given key
+        self.log(f"Serving {packet}")
+        key = packet.data["key"]
+        try:
+            nodes, hops = yield from self.unzip_find(key, self.env.all_of)
+            requests = self.ask(nodes, packet, PacketType.SET_VALUE)
+            yield from self.wait_resps(requests, [])
+        except DHTTimeoutError:
+            hops = -1
 
-        Args:
-            packet (Packet): The packet containing the key and the value
-        """
-        pass
+        new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY,
+                            data=dict(hops=hops), event=packet.event)
+        self.send_resp(cast(Node, packet.sender), new_packet)
 
     @abstractmethod
     def _compute_distance(self, from_key: int) -> int:

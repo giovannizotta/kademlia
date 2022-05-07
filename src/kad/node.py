@@ -1,25 +1,10 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Sequence
-from dataclasses import dataclass
 from math import log2
 
-from common.node import Node, DHTNode, Packet, PacketType, Request
 from common.client import Client
+from common.node import Node, DHTNode, Packet, PacketType
 from common.utils import *
-
-
-def decide_value(packets: List[Packet]) -> Optional[Any]:
-    # give the most popular value
-    d: DefaultDict[Any, int] = defaultdict(int)
-    for packet in packets:
-        if d[packet.data["value"]] is not None:
-            d[packet.data["value"]] += 1
-    if d:
-        return max(d, key=lambda k: d[k])
-    else:
-        return None
 
 
 @dataclass
@@ -55,7 +40,8 @@ class KadNode(DHTNode):
                             data=dict(neighbors=neighs), event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
 
-    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode], contacted: Set[KadNode]) -> bool:
+    def update_candidates(self, packets: Sequence[Packet], key: int, current: List[KadNode],
+                          contacted: Set[KadNode]) -> bool:
         current_set = set(current)
         for packet in packets:
             for neigh in packet.data["neighbors"]:
@@ -74,48 +60,6 @@ class KadNode(DHTNode):
             found = True
         return found
 
-    def ask(self, to: List[KadNode], packet: Packet, ptype: PacketType) -> List[Request]:
-        requests = list()
-        for node in to:
-            self.log(
-                f"asking {ptype.name} to {node.name} for the key {packet.data['key']} {packet.data.get('value', '')}")
-            new_packet = Packet(ptype=ptype, data=packet.data)
-            sent_req = self.send_req(node, new_packet)
-            requests.append(sent_req)
-        return requests
-
-    def find_value(self, packet: Packet) -> SimpyProcess[None]:
-        self.log(f"Serving {packet}")
-        key = packet.data["key"]
-        packets: List[Packet] = list()
-        try:
-            nodes, hops = yield from self.find_node(key)
-            requests = self.ask(nodes, packet, PacketType.GET_VALUE)
-            yield from self.wait_resps(requests, packets)
-        except DHTTimeoutError:
-            if not packets:
-                hops = -1
-
-        value = decide_value(packets)
-        self.log(f"decided value {value}")
-        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(
-            value=value, hops=hops), event=packet.event)
-        self.send_resp(cast(Node, packet.sender), new_packet)
-
-    def store_value(self, packet: Packet) -> SimpyProcess[None]:
-        self.log(f"Serving {packet}")
-        key = packet.data["key"]
-        nodes, hops = yield from self.find_node(key)
-        try:
-            requests = self.ask(nodes, packet, PacketType.SET_VALUE)
-            yield from self.wait_resps(requests, [])
-        except DHTTimeoutError:
-            hops = -1
-
-        new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY,
-                            data=dict(hops=hops), event=packet.event)
-        self.send_resp(cast(Node, packet.sender), new_packet)
-
     def get_bucket_for(self, key: int) -> int:
         dst = self._compute_distance(key)
         return dst if dst == 0 else int(log2(dst))
@@ -129,17 +73,17 @@ class KadNode(DHTNode):
         try:
             index = bucket.index(node)
             for i in range(index, len(bucket) - 1):
-                bucket[i] = bucket[i+1]
+                bucket[i] = bucket[i + 1]
             bucket[-1] = node
         except ValueError:
             if len(bucket) < self.k:
                 bucket.append(node)
             else:
                 for i in range(len(bucket) - 1):
-                    bucket[i] = bucket[i+1]
+                    bucket[i] = bucket[i + 1]
                 bucket[-1] = node
 
-    def find_node(self, key: int) -> SimpyProcess[Tuple[List[KadNode], int]]:
+    def find_node(self, key: int) -> SimpyProcess[List[simpy.Process]]:
         self.log(f"Looking for key {key}")
         contacted = set()
         contacted.add(self)
@@ -164,7 +108,14 @@ class KadNode(DHTNode):
 
         for node in current:
             self.update_bucket(node)
-        return current, hop
+        processes = []
+        for node in current:
+            def p():
+                yield self.env.timeout(0)
+                return node, hop
+
+            processes.append(self.env.process(p()))
+        return processes
 
     def pick_neighbors(self, key: int) -> List[KadNode]:
         nodes = set()
@@ -207,7 +158,7 @@ def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
     i = node.get_bucket_for(key)
     cb_iter = iter(node.buckets[i])
     lb_iter = iter(reversed(node.buckets[:i]))
-    rb_iter = iter(node.buckets[i+1:])
+    rb_iter = iter(node.buckets[i + 1:])
     left = True
 
     while True:

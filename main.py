@@ -1,5 +1,4 @@
 import json
-import logging
 from argparse import ArgumentParser, Namespace
 
 from tqdm import tqdm
@@ -8,14 +7,14 @@ from chord.net_manager import ChordNetManager
 from common.net_manager import NetManager
 from common.node import DataCollector
 from common.simulator import Simulator
-from common.utils import RandomBatchGenerator as RBG
 from common.utils import *
+from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
 
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
 WORLD_SIZE = 160
-N_KEYS = 10**4
+N_KEYS = 10 ** 4
 QUEUE_CAPACITY = 100
 
 
@@ -75,7 +74,7 @@ def main() -> None:
             join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(
-            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity)
+            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k)
 
     simulator = Simulator(join_env, "Simulator", net_manager,
                           keys, args.plot, mean_arrival=args.rate, ext=args.ext)
@@ -88,7 +87,7 @@ def main() -> None:
     run_env = simpy.Environment()
     run_env.process(simulator.simulate(run_env))
     for i in tqdm(range(args.max_time)):
-        run_env.run(until=i+1)
+        run_env.run(until=i + 1)
 
     # dump collected data
     with open(args.file, 'w', encoding='utf8') as f:

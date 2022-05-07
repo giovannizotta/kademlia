@@ -1,33 +1,36 @@
+from chord.node import ChordNode
 from common.net_manager import *
 from common.utils import *
 
-from chord.node import ChordNode
 
-
+@dataclass
 class ChordNetManager(NetManager):
+    k: int = field(repr=False, default=5)
 
     def create_nodes(self) -> None:
         self.nodes: Sequence[ChordNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                ChordNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size, queue_capacity=self.capacity))
+                ChordNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size,
+                          queue_capacity=self.capacity, k=self.k))
         # hardwire two nodes
-        self.nodes[0].succ = self.nodes[1]
-        self.nodes[1].succ = self.nodes[0]
-        self.nodes[0].pred = self.nodes[1]
-        self.nodes[1].pred = self.nodes[0]
+        for i in range(self.k):
+            self.nodes[0].succ = (i, self.nodes[1])
+            self.nodes[1].succ = (i, self.nodes[0])
+            self.nodes[0].pred = (i, self.nodes[1])
+            self.nodes[1].pred = (i, self.nodes[0])
 
     def print_network(self, node: DHTNode, ext: str) -> None:
         node = cast(ChordNode, node)
-        graph_edges = [(u.id, u.succ.id)
+        graph_edges = [(u.id, u.succ[0].id)
                        for u in sorted(self.nodes, key=lambda n: n.id)]
-        ft_edges = set([(node.id, finger.id) for finger in node.ft])
+        ft_edges = set([(node.id, finger.id) for finger in node.ft[0]])
         G = nx.DiGraph()
         G.add_edges_from(graph_edges)
         # get nodes color
         color_map = {n: NetManager.NODE_COLOR for n in G.nodes}
         assert node.id in color_map
-        for finger in node.ft:
+        for finger in node.ft[0]:
             color_map[finger.id] = NetManager.TARGETS_COLOR
         color_map[node.id] = NetManager.SOURCE_COLOR
         colors = [color_map[n] for n in G.nodes]

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import *
 
 import numpy as np
@@ -19,7 +18,6 @@ SimpyProcess = Generator[Union[simpy.Event,
                                simpy.Process], simpy.events.ConditionValue, T]
 
 Request = NewType("Request", simpy.Event)
-
 
 Method = Callable[..., T]
 
