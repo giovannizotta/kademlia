@@ -83,17 +83,18 @@ class KadNode(DHTNode):
                     bucket[i] = bucket[i + 1]
                 bucket[-1] = node
 
-    def find_node(self, key: int) -> SimpyProcess[List[simpy.Process]]:
+    def find_node(self, key: int | str) -> SimpyProcess[List[simpy.Process]]:
+        key_hash = self._compute_key(key) if type(key) == str else key
         self.log(f"Looking for key {key}")
         contacted = set()
         contacted.add(self)
-        current = self.pick_neighbors(key)
+        current = self.pick_neighbors(key_hash)
         assert len(current) > 0
         found = False
         hop = 0
         old_current: List[KadNode] = list()
         while not found:
-            requests = self.ask_neighbors(current, contacted, key)
+            requests = self.ask_neighbors(current, contacted, key_hash)
             hop += 1
             assert requests, f"{hop}, {current}, {old_current}, {contacted}"
             packets: List[Packet] = list()
@@ -104,7 +105,7 @@ class KadNode(DHTNode):
 
             old_current = current.copy()
             # print(f"Received {packets}")
-            found = self.update_candidates(packets, key, current, contacted)
+            found = self.update_candidates(packets, key_hash, current, contacted)
 
         for node in current:
             self.update_bucket(node)

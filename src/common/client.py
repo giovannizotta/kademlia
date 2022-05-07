@@ -18,8 +18,7 @@ class Client(Node):
         self.log(
             f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
         before = self.env.now
-        key_hash = self._compute_key(key)
-        packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key_hash))
+        packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key))
         sent_req = self.send_req(ask_to, packet)
         try:
             packet = yield from self.wait_resp(sent_req)
@@ -42,9 +41,8 @@ class Client(Node):
         self.log(
             f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
         before = self.env.now
-        key_hash = self._compute_key(key)
         packet = Packet(ptype=PacketType.STORE_VALUE,
-                        data=dict(key=key_hash, value=value))
+                        data=dict(key=key, value=value))
         sent_req = self.send_req(ask_to, packet)
         try:
             packet = yield from self.wait_resp(sent_req)

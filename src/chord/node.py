@@ -98,10 +98,12 @@ class ChordNode(DHTNode):
         best_node = tmp
         return self._forward(packet.data["key"], packet.data["index"], found, best_node)
 
-    def find_node_on_index(self, key: int, index: int, ask_to: Optional[ChordNode] = None) -> SimpyProcess[
+    def find_node_on_index(self, key: int | str, index: int, ask_to: Optional[ChordNode] = None) -> SimpyProcess[
         Tuple[Optional[ChordNode], int]]:
+        # use different hash functions for each index by hashing key+index
+        key_hash = self._compute_key(key + str(index)) if type(key) == str else key
         self.log(f"start looking for nodes holding {key} for index {index}")
-        best_node, found, sent_req = self._get_best_node_and_forward(key, index, ask_to)
+        best_node, found, sent_req = self._get_best_node_and_forward(key_hash, index, ask_to)
         hops = 0
         while not found:
             hops += 1
@@ -117,7 +119,7 @@ class ChordNode(DHTNode):
 
     def find_node(
             self,
-            key: int,
+            key: int | str,
             ask_to: Optional[ChordNode] = None
     ) -> SimpyProcess[List[simpy.Process]]:
 
@@ -169,7 +171,7 @@ class ChordNode(DHTNode):
 
     def join_network(self, to: ChordNode) -> SimpyProcess[None]:
         for index in range(self.k):
-            node, _ = yield from self.find_node_on_index(self.id, index, ask_to=to)
+            node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
             assert node is not None
             self.log(f"trying to join the network from {to} on index {index}")
             # ask to the node responsible for the key on index
@@ -202,12 +204,10 @@ class ChordNode(DHTNode):
         self.ft[index][pos] = node
 
     def update(self) -> SimpyProcess[None]:
-        for x in range(self.log_world_size):
-            key = (self.id + 2 ** x) % (2 ** self.log_world_size)
-            # TODO: check all_of or any_of
-            nodes, _ = yield from self.unzip_find(key, self.env.all_of)
-            for index in range(self.k):
-                node = nodes[index]
+        for index, id_ in enumerate(self.ids):
+            for x in range(self.log_world_size):
+                key = (id_ + 2 ** x) % (2 ** self.log_world_size)
+                node, _ = yield from self.find_node_on_index(key, index)
                 if node is not None:
                     self._update_ft(x, index, node)
 

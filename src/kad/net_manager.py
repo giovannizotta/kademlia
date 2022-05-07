@@ -3,6 +3,8 @@ import networkx as nx
 from common.net_manager import *
 from common.utils import *
 from kad.node import KadNode
+import networkx as nx
+import matplotlib.pyplot as plt
 
 
 def get_key(id: int) -> str:

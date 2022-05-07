@@ -261,7 +261,7 @@ class DHTNode(Node):
     @abstractmethod
     def find_node(
             self,
-            key: int,
+            key: int | str,
             ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[List[simpy.Process]]:
         """Iteratively find the closest node(s) to the given key
@@ -329,7 +329,7 @@ class DHTNode(Node):
                 requests.append(sent_req)
         return requests
 
-    def unzip_find(self, key: int, function: Callable) -> SimpyProcess[Tuple[List[DHTNode], int]]:
+    def unzip_find(self, key: int | str, function: Callable) -> SimpyProcess[Tuple[List[DHTNode], int]]:
         processes = yield from self.find_node(key)
         ans = yield function(processes)
         best_nodes, hops = zip(*[ans[p] for p in processes])
