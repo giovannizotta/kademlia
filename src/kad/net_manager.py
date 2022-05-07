@@ -1,5 +1,5 @@
 from networkx.drawing.nx_pydot import pydot_layout
-
+import networkx as nx
 from common.net_manager import *
 from common.utils import *
 from kad.node import KadNode
@@ -86,7 +86,8 @@ class KadNetManager(NetManager):
         self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size, queue_capacity=self.capacity, alpha=self.alpha, k=self.k))
+                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size,
+                        queue_capacity=self.capacity, alpha=self.alpha, k=self.k))
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])

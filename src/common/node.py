@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
-from enum import auto
+from enum import auto, Enum
 
 from bitstring import BitArray
 
