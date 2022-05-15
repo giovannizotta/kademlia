@@ -28,6 +28,8 @@ def parse_args() -> Namespace:
                     help="Output plot directory")
     ap.add_argument("-r", "--rates", nargs="+", type=float,
                     help="Rates", default=rates)
+    ap.add_argument("-s", "--singlerate", type=float,
+                    help="Rate for a single file", default=0.1)
     ap.add_argument("-n", "--nodes", type=int, required=True,
                     help="Number of nodes")
     ap.add_argument("-t", "--time", type=int, required=True,
@@ -62,10 +64,7 @@ def get_data(inputdir, n_nodes, time, rate=0):
     max_delay = 0
     max_time = 0
     for dht in dhts:
-        if rate == 0:
-            pick = open(os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_0.1.json"), "r", encoding='utf8')
-        else:
-            pick = open(os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_{rate}.json"), "r", encoding='utf8')
+        pick = open(os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_{rate}.json"), "r", encoding='utf8')
         dct = json.load(pick)
         # print(dct)
         dht_data: DataCollector = DataCollector.from_dict(dct)
@@ -204,7 +203,7 @@ def plot_arrival_delay_comparison(inputdir, ext, nodes, time, rates, outputdir):
 def main():
     args = parse_args()
     if not args.arrivals:
-        data, max_hops, max_delay, max_time = get_data(args.input, args.nodes, args.time)
+        data, max_hops, max_delay, max_time = get_data(args.input, args.nodes, args.time, args.singlerate)
         print("Plotting delay comparison")
         plot_comparison(data, max_hops, args.ext, args.nodes, args.output)
         plt.clf()

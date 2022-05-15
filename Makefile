@@ -40,7 +40,7 @@ plot_kad:
 	--seed $(SEED) --dht KAD --plot True --file $(DATADIR)/KAD.json --ext $(EXT)
 
 plot:
-	@python3 plot.py --nodes $(NODES) --time $(TIME)
+	@python3 plot.py --nodes $(NODES) --time $(TIME) --singlerate $(RATE)
 	@echo "Plots completed."
 
 plots: run_kad run_chord plot

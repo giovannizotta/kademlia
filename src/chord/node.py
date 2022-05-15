@@ -114,7 +114,7 @@ class ChordNode(DHTNode):
             except DHTTimeoutError:
                 self.log(f"find_node_on_index for {key}, {index} timed out.", level=logging.WARNING)
                 return None, -1
-
+        self.log(f"found node for key {key} on index {index}: {best_node}")
         return best_node, hops
 
     def find_node(
@@ -171,9 +171,9 @@ class ChordNode(DHTNode):
 
     def join_network(self, to: ChordNode) -> SimpyProcess[None]:
         for index in range(self.k):
+            self.log(f"trying to join the network from {to} on index {index}")
             node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
             assert node is not None
-            self.log(f"trying to join the network from {to} on index {index}")
             # ask to the node responsible for the key on index
             # ask node its successor
             sent_req = self.ask([node], Packet(ptype=PacketType.GET_SUCC, data=dict(index=index)), PacketType.GET_SUCC)[
@@ -210,48 +210,6 @@ class ChordNode(DHTNode):
                 node, _ = yield from self.find_node_on_index(key, index)
                 if node is not None:
                     self._update_ft(x, index, node)
-
-    # def ask(self, to: ChordNode, packet: Packet, ptype: PacketType) -> Request:
-    #     self.log(f"asking {to} for {ptype.name} for {packet.data}")
-    #     packet = Packet(ptype=ptype, data=packet.data)
-    #     return self.send_req(to, packet)
-    #
-    # def find_value(self, packet: Packet) -> SimpyProcess[None]:
-    #     self.log(f"find_value in ChordNode, serving {packet}")
-    #     original_sender = packet.sender
-    #     original_event = packet.event
-    #     key = packet.data["key"]
-    #     try:
-    #         nodes, hops = yield from self.find_node(key)
-    #         sent_req = self.ask(node, packet, PacketType.GET_VALUE)
-    #         packet = yield from self.wait_resp(sent_req)
-    #     except DHTTimeoutError:
-    #         hops = -1
-    #         packet.data["value"] = None
-    #
-    #     packet.data["hops"] = hops
-    #     new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=packet.data, event=original_event)
-    #     self.log(f"Replying to {original_sender} with packet {new_packet}")
-    #     self.send_resp(original_sender, new_packet)
-    #
-    # def store_value(self, packet: Packet) -> SimpyProcess[None]:
-    #     self.log(f"Serving {packet}")
-    #     original_sender = packet.sender
-    #     original_event = packet.event
-    #     key = packet.data["key"]
-    #     try:
-    #         node, hops = yield from self.find_node(key)
-    #         self.log(f"found node {node} in {hops} hops")
-    #         sent_req = self.ask(node, packet, PacketType.SET_VALUE)
-    #         packet = yield from self.wait_resp(sent_req)
-    #     except DHTTimeoutError:
-    #         hops = -1
-    #         self.log(f"unable to store the ({key} {packet.data['value']} pair")
-    #
-    #     packet.data["hops"] = hops
-    #     new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY, data=packet.data, event=original_event)
-    #     self.log(f"Replying to {original_sender} with packet {new_packet}")
-    #     self.send_resp(original_sender, new_packet)
 
     # other methods to implement:
     # - update finger table, when is it called? Just at the beginning or periodically?
