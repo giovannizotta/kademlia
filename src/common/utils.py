@@ -45,6 +45,8 @@ class RandomBatchGenerator(metaclass=Singleton):
     """
     _exponentials: Dict[int, Iterator[float]] = field(
         repr=False, init=False, default_factory=dict)
+    _normals: Dict[Tuple[int, int, int], Iterator[float]] = field(
+        repr=False, init=False, default_factory=dict)
     _choices: Dict[int, Iterator[int]] = field(
         repr=False, init=False, default_factory=dict)
     _rng: np.random.Generator = field(init=False, repr=False)
@@ -72,6 +74,24 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._exponentials[mean])
         return sample
         # return exponential
+
+    def get_normal(self, mean: float, std_dev: float, min_cap: float) -> float:
+        """Draw a number from a normal distribution given mean and stddev. Cap the value to a lower bound min_cap."""
+        # use ints as keys
+        mean = round(mean * self.precision)
+        std_dev = round(std_dev * self.precision)
+        min_cap = round(min_cap * self.precision)
+        if not (mean, std_dev, min_cap) in self._normals:
+            self._normals[(mean, std_dev, min_cap)] = iter(np.ndarray(0))
+        try:
+            sample = next(self._normals[(mean, std_dev, min_cap)])
+        except StopIteration:
+            norm = self._rng.normal(
+                mean / self.precision, std_dev / self.precision, RandomBatchGenerator.BATCH_SIZE)
+            norm = norm[norm >= min_cap / self.precision]
+            self._normals[(mean, std_dev, min_cap)] = iter(norm)
+            sample = next(self._normals[(mean, std_dev, min_cap)])
+        return sample
 
     def get_from_range(self, n: int) -> int:
         """Draw a random item from the range(n)"""

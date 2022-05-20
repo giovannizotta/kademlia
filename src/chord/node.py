@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from common.node import DHTNode, Node, Packet, PacketType
 from common.utils import *
+from math import log2
 
 
 @dataclass
@@ -11,6 +12,16 @@ class ChordNode(DHTNode):
     _succ: List[Optional[ChordNode]] = field(init=False, repr=False)
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
+
+    STABILIZE_PERIOD: ClassVar[float] = 200
+    STABILIZE_STDDEV: ClassVar[float] = 20
+    STABILIZE_MINCAP: ClassVar[float] = 100
+    INBETWEEN_FINGER_PERIOD: ClassVar[float] = 10
+    INBETWEEN_FINGER_STDDEV: ClassVar[float] = 2
+    INBETWEEN_FINGER_MINCAP: ClassVar[float] = 3
+    UPDATE_FINGER_PERIOD: ClassVar[float] = 200
+    UPDATE_FINGER_STDDEV: ClassVar[float] = 20
+    UPDATE_FINGER_MINCAP: ClassVar[float] = 100
 
     def __post_init__(self):
         super().__post_init__()
@@ -30,6 +41,13 @@ class ChordNode(DHTNode):
             self.get_predecessor(packet)
         elif packet.ptype == PacketType.SET_PRED:
             self.set_predecessor(packet)
+        elif packet.ptype == PacketType.NOTIFY:
+            self.notify(packet)
+
+    def change_env(self, env: simpy.Environment) -> None:
+        super().change_env(env)
+        self.env.process(self.stabilize())
+        self.env.process(self.fix_fingers())
 
     def get_node(
             self,
@@ -50,6 +68,7 @@ class ChordNode(DHTNode):
     def succ(self, value: Tuple[int, ChordNode]) -> None:
         i, node = value
         self._succ[i] = node
+        #self.ft[i][self.get_index_for(node.ids[i], i)] = node
         self.ft[i][-1] = node
 
     @property
@@ -61,8 +80,12 @@ class ChordNode(DHTNode):
         i, node = value
         self._pred[i] = node
 
+    def get_index_for(self, key: int, index: int) -> int:
+        dst = self._compute_distance(key, index)
+        return dst if dst == 0 else int(log2(dst))
+
     def _get_best_node(self, key: int, index: int) -> Tuple[ChordNode, bool]:
-        best_node = min(self.ft[index], key=lambda node: node._compute_distance(key))
+        best_node = min(self.ft[index], key=lambda node: node._compute_distance(key, index))
         found = best_node is self
         self.log(
             f"asked for best node for key {key}, {index}, it's {best_node if not found else 'me'}")
@@ -150,7 +173,8 @@ class ChordNode(DHTNode):
             packet: Packet,
     ) -> None:
         self.log("asked what is my predecessor for index {packet.data['index']}")
-        new_packet = Packet(ptype=PacketType.GET_PRED_REPLY, data=dict(succ=self.pred[packet.data["index"]]),
+        index = packet.data["index"]
+        new_packet = Packet(ptype=PacketType.GET_PRED_REPLY, data=dict(pred=self.pred[index]),
                             event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
@@ -169,6 +193,53 @@ class ChordNode(DHTNode):
         sent_req = self.send_req(to, packet)
         return sent_req
 
+    def send_notify(self, index: int) -> None:
+        succ = self.succ[index]
+        assert succ is not None
+        self.send_req(succ, Packet(ptype=PacketType.NOTIFY, data=dict(index=index, pred=self)))
+
+    def notify(self, packet: Packet) -> None:
+        p = packet.data["pred"]
+        index = packet.data["index"]
+        if self.pred[index] is None or p in (self, self.pred[index]):
+            self.pred[index] = p
+
+    def stabilize(self) -> SimpyProcess[None]:
+        while True:
+            yield self.env.timeout(self.rbg.get_normal(self.STABILIZE_PERIOD, self.STABILIZE_STDDEV, self.STABILIZE_MINCAP))
+            for index in range(self.k):
+                self.env.process(self.stabilize_on_index(index))
+
+
+    def stabilize_on_index(self, index: int) -> SimpyProcess[None]:
+        succ = self.succ[index]
+        sent_req = self.ask([succ], Packet(ptype=PacketType.GET_PRED, data=dict(index=index)), PacketType.GET_PRED)[0]
+        try:
+            packet = yield from self.wait_resp(sent_req)
+            x = packet.data["pred"]
+            if x in (self, succ):
+                self.succ[index] = x
+            
+            self.send_notify(index)
+        except DHTTimeoutError:
+            self.log(f"Timeout on stabilize on index {index}", level=logging.WARNING)
+
+
+    def fix_finger_on_index(self, finger_index: int, index: int) -> SimpyProcess[None]:
+        key = (self.ids[index] + 2 ** finger_index) % (2 ** self.log_world_size)
+        node, _ = yield from self.find_node_on_index(key, index)
+        if node is not None:
+            self._update_ft(finger_index, index, node)
+
+
+    def fix_fingers(self) -> SimpyProcess[None]:
+        while True:
+            yield self.env.timeout(self.rbg.get_normal(self.UPDATE_FINGER_PERIOD, self.UPDATE_FINGER_STDDEV, self.UPDATE_FINGER_MINCAP))
+            for finger_index in range(self.log_world_size):
+                for index in range(self.k):
+                    self.env.process(self.fix_finger_on_index(finger_index, index))
+                yield self.env.timeout(self.rbg.get_normal(self.INBETWEEN_FINGER_PERIOD, self.INBETWEEN_FINGER_STDDEV, self.INBETWEEN_FINGER_MINCAP))
+
     def join_network(self, to: ChordNode) -> SimpyProcess[None]:
         for index in range(self.k):
             self.log(f"trying to join the network from {to} on index {index}")
@@ -186,8 +257,7 @@ class ChordNode(DHTNode):
             # ask them to put me in the ring
             sent_req_pred = \
                 self.ask([node], Packet(ptype=PacketType.SET_SUCC, data=dict(succ=self, index=index)),
-                         PacketType.SET_SUCC)[
-                    0]
+                         PacketType.SET_SUCC)[0]
             sent_req_succ = self.ask([node_succ], Packet(ptype=PacketType.SET_PRED, data=dict(pred=self, index=index)),
                                      PacketType.SET_PRED)[0]
             # wait for both answers
@@ -196,8 +266,9 @@ class ChordNode(DHTNode):
             self.pred = (index, node)
             self.succ = (index, node_succ)
 
-    def _compute_distance(self, from_key: int) -> int:
-        dst = (from_key - self.id)
+
+    def _compute_distance(self, from_key: int, index: int) -> int:
+        dst = (from_key - self.ids[index])
         return dst % (2 ** self.log_world_size)
 
     def _update_ft(self, pos: int, index: int, node: ChordNode) -> None:

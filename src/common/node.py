@@ -29,6 +29,8 @@ class PacketType(Enum):
     SET_VALUE = auto()
     GET_VALUE_REPLY = auto()
     SET_VALUE_REPLY = auto()
+    NOTIFY = auto()
+
 
     def is_reply(self):
         return "REPLY" in self.name
@@ -101,7 +103,6 @@ class Node(Loggable):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
-        self.log(f"node, serving {packet}")
         if packet.ptype.is_reply():
             assert packet.event is not None
             packet.event.succeed(value=packet)
@@ -119,13 +120,10 @@ class Node(Loggable):
 
         with self.in_queue.request() as res:
             self.collect_load()
-            self.log(f"Trying to acquire queue, position: {len(self.in_queue.queue)}")
             yield res
-            self.log("Queue acquired")
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
 
-        self.log("Queue released")
         self.collect_load()
 
         self.manage_packet(packet)
@@ -366,7 +364,3 @@ class DHTNode(Node):
         new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY,
                             data=dict(hops=hops), event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
-
-    @abstractmethod
-    def _compute_distance(self, from_key: int) -> int:
-        pass
