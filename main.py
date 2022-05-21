@@ -56,7 +56,7 @@ def main() -> None:
     # init the logger
     logger = logging.getLogger("logger")
     logger.setLevel(args.loglevel)
-    fh = logging.FileHandler(f"{args.dht}_logs.log", mode='w')
+    fh = logging.FileHandler(f"logs/{args.dht}_logs.log", mode='w')
     fh.setLevel(args.loglevel)
     formatter = logging.Formatter('%(levelname)10s: %(message)s')
     fh.setFormatter(formatter)

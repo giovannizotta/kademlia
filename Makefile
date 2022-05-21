@@ -1,4 +1,4 @@
-#!/bin/bash
+#/bin/bash
 NODES?=100
 TIME?=1000
 SEED?=420
@@ -6,6 +6,8 @@ ALPHA?=3
 K?=5
 LEVEL?=INFO
 RATE?=0.1
+IMGDIR?=img
+LOGDIR?=logs
 DATADIR?=res/data
 PLOTDIR?=res/plots
 EXT?=pdf
@@ -14,9 +16,11 @@ RATES?=0.01 0.02 0.05 0.1
 main: help
 
 clean:
-	@rm -f *.log
+	@rm -f $(LOGDIR)/*.log
 
 prepare: clean
+	@mkdir -p $(IMGDIR)
+	@mkdir -p $(LOGDIR)
 	@mkdir -p $(DATADIR)
 	@mkdir -p $(PLOTDIR)
 

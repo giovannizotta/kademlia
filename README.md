@@ -8,7 +8,6 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
     ```[bash]
     git clone git@github.com:GiovanniZotta/kademlia.git
     ```
-
 * [Optional] Create a virtual environment:
     ```[bash]
     python3 -m venv path-to-venv
@@ -16,14 +15,16 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
     ```
 * Install the package in edit mode:
     ```[bash]
-    pip install -e kademlia
+    pip install -e "kademlia[test]"
     ```
-
+* Check that all the tests are working:
+    ```[bash]
+    pytest
+    ```
 * Try it out! To run a simulation for both DHTs you can use the following command:
     ```[bash]
     make plots NODES=100 TIME=1000 RATE=0.1
     ```
-
 * The plots will end up in res/plots. The Makefile offers various commands such as:
     ```[bash]
     make plots
@@ -34,6 +35,6 @@ The goal of this assignment is to implement the Kademlia protocol in Python and 
 # Plots
 Our simulator offers the possibility to make a chart of the DHT from the perspective of a node.
 
-![Kademlia](kad.png)
+![Kademlia](img/kad.png)
 
-![Chord](chord.png)
+![Chord](img/chord.png)

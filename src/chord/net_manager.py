@@ -25,8 +25,12 @@ class ChordNetManager(NetManager):
 
     def print_network(self, node: DHTNode, ext: str) -> None:
         node = cast(ChordNode, node)
-        graph_edges = [(u.id, u.succ[0].id)
-                       for u in sorted(self.nodes, key=lambda n: n.id)]
+        graph_edges = []
+        start = self.nodes[0]
+        ptr = start.succ[0]
+        while ptr != start:
+            graph_edges.append((ptr.id, ptr.succ[0].id))
+            ptr = ptr.succ[0]
         ft_edges = set([(node.id, finger.id) for finger in node.ft[0]])
         G = nx.DiGraph()
         G.add_edges_from(graph_edges)
@@ -48,7 +52,7 @@ class ChordNetManager(NetManager):
         nx.draw_networkx_edges(G, pos, edgelist=ft_edges, node_size=NetManager.NODE_SIZE,
                                edge_color="darkgrey", arrowstyle="->", connectionstyle="arc3,rad=-0.2")
         # plt.savefig("chord.png")
-        plt.savefig(f"chord.{ext}", format=ext, bbox_inches=0, pad_inches=0)
+        plt.savefig(f"img/chord.{ext}", format=ext, bbox_inches=0, pad_inches=0)
         plt.show()
 
     def prepare_updates(self) -> SimpyProcess[None]:
