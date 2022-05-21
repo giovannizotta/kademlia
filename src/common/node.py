@@ -122,10 +122,10 @@ class Node(Loggable):
             yield res
             service_time = self.rbg.get_exponential(self.mean_service_time)
             yield self.env.timeout(service_time)
+            self.manage_packet(packet)
 
         self.collect_load()
 
-        self.manage_packet(packet)
 
     def new_req(self) -> Request:
         """Generate a new request event"""
