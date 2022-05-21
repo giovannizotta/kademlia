@@ -112,7 +112,7 @@ class Loggable(ABC):
     env: simpy.Environment = field(repr=False)
     name: str
 
-    id: int = field(init=False)
+    id: int = field(init=False, repr=False)
 
     logger: logging.Logger = field(init=False, repr=False)
     rbg: RandomBatchGenerator = field(init=False, repr=False)
@@ -125,4 +125,4 @@ class Loggable(ABC):
     def log(self, msg: str, level: int = logging.DEBUG) -> None:
         """Log simulation events"""
         self.logger.log(
-            level, f"{self.env.now:5.1f} {self.name:>12s}(id {self.id:50d}): {msg}")
+            level, f"{self.env.now:5.1f} {self.name:>12s}:    {msg}")

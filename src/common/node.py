@@ -87,6 +87,7 @@ def decide_value(packets: List[Packet]) -> Optional[Any]:
 class Node(Loggable):
     """Network node"""
     datacollector: DataCollector = field(repr=False)
+    mean_service_time: float = field(repr=False, default=0.1)
     max_timeout: float = field(repr=False, default=50.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
@@ -225,7 +226,6 @@ class Node(Loggable):
 
 @dataclass
 class DHTNode(Node):
-    mean_service_time: float = field(repr=False, default=0.1)
     ht: Dict[int, Any] = field(init=False, repr=False)
 
     @abstractmethod
@@ -329,6 +329,7 @@ class DHTNode(Node):
     def unzip_find(self, key: int | str, function: Callable) -> SimpyProcess[Tuple[List[DHTNode], int]]:
         processes = yield from self.find_node(key)
         ans = yield function(processes)
+        self.log(f"nodes to ask: {ans}")
         best_nodes, hops = zip(*[ans[p] for p in processes])
         return list(best_nodes), max(hops)
 

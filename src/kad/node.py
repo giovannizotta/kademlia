@@ -9,9 +9,7 @@ from common.utils import *
 
 @dataclass
 class KadNode(DHTNode):
-    neigh: Optional[KadNode] = None
     buckets: List[List[KadNode]] = field(init=False, repr=False)
-    capacity: int = field(repr=False, default=100)
     alpha: int = field(repr=False, default=3)
     k: int = field(repr=False, default=5)
 
@@ -20,7 +18,6 @@ class KadNode(DHTNode):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.max_timeout = 10
         self.buckets = [[] for _ in range(self.log_world_size)]
 
     def process_sender(self: KadNode, packet: Packet) -> None:
@@ -68,7 +65,6 @@ class KadNode(DHTNode):
         if node is self:
             return
 
-        self.log(f"Updating buckets with node {node.name}")
         bucket = self.buckets[self.get_bucket_for(node.id)]
         try:
             index = bucket.index(node)
@@ -104,18 +100,20 @@ class KadNode(DHTNode):
                 self.log("DHT timeout error", level=logging.WARNING)
 
             old_current = current.copy()
-            # print(f"Received {packets}")
+            self.log(f"Received {packets}")
             found = self.update_candidates(packets, key_hash, current, contacted)
 
         for node in current:
             self.update_bucket(node)
         processes = []
+        self.log(f"finished find_node, nodes: {current}")
         for node in current:
-            def p():
+            def p(n, h):
                 yield self.env.timeout(0)
-                return node, hop
+                return n, h
 
-            processes.append(self.env.process(p()))
+            processes.append(self.env.process(p(node, hop)))
+        self.log(f"processes: {processes}")
         return processes
 
     def pick_neighbors(self, key: int) -> List[KadNode]:

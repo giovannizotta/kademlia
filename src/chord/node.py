@@ -17,9 +17,6 @@ class ChordNode(DHTNode):
     STABILIZE_PERIOD: ClassVar[float] = 200
     STABILIZE_STDDEV: ClassVar[float] = 20
     STABILIZE_MINCAP: ClassVar[float] = 100
-    INBETWEEN_FINGER_PERIOD: ClassVar[float] = 10
-    INBETWEEN_FINGER_STDDEV: ClassVar[float] = 2
-    INBETWEEN_FINGER_MINCAP: ClassVar[float] = 3
     UPDATE_FINGER_PERIOD: ClassVar[float] = 200
     UPDATE_FINGER_STDDEV: ClassVar[float] = 20
     UPDATE_FINGER_MINCAP: ClassVar[float] = 100
@@ -209,6 +206,7 @@ class ChordNode(DHTNode):
         while True:
             yield self.env.timeout(
                 self.rbg.get_normal(self.STABILIZE_PERIOD, self.STABILIZE_STDDEV, self.STABILIZE_MINCAP))
+            self.log(f"stabilizing")
             for index in range(self.k):
                 self.env.process(self.stabilize_on_index(index))
 
@@ -227,6 +225,7 @@ class ChordNode(DHTNode):
 
     def fix_finger_on_index(self, finger_index: int, index: int) -> SimpyProcess[None]:
         key = (self.ids[index] + 2 ** finger_index) % (2 ** self.log_world_size)
+        self.log(f"Updating finger {finger_index} on index {index}")
         node, _ = yield from self.find_node_on_index(key, index)
         if node is not None:
             self._update_ft(finger_index, index, node)
@@ -235,11 +234,10 @@ class ChordNode(DHTNode):
         while True:
             yield self.env.timeout(
                 self.rbg.get_normal(self.UPDATE_FINGER_PERIOD, self.UPDATE_FINGER_STDDEV, self.UPDATE_FINGER_MINCAP))
+            self.log("fixing fingers")
             for finger_index in range(self.log_world_size):
                 for index in range(self.k):
                     self.env.process(self.fix_finger_on_index(finger_index, index))
-                yield self.env.timeout(self.rbg.get_normal(self.INBETWEEN_FINGER_PERIOD, self.INBETWEEN_FINGER_STDDEV,
-                                                           self.INBETWEEN_FINGER_MINCAP))
 
     def join_network(self, to: ChordNode) -> SimpyProcess[None]:
         for index in range(self.k):
