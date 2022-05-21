@@ -2,8 +2,8 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path
-from common.node import DataCollector
 from common.utils import *
+from common.node import DataCollector
 from common.simulator import Simulator
 from argparse import ArgumentParser, Namespace
 from itertools import chain

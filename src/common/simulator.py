@@ -88,7 +88,9 @@ class Simulator(Loggable):
             t = self.get_arrival_time()
             yield self.env.timeout(t)
             client_name = f"client_{i:05d}"
-            client = Client(self.env, client_name, self.net_manager.datacollector,
+            client = Client(self.env,
+                            client_name,
+                            self.net_manager.datacollector,
                             log_world_size=self.net_manager.nodes[0].log_world_size)
             proc = self.get_client_behaviour(client)
             self.env.process(proc)

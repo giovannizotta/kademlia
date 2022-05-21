@@ -31,13 +31,12 @@ class PacketType(Enum):
     SET_VALUE_REPLY = auto()
     NOTIFY = auto()
 
-
     def is_reply(self):
         return "REPLY" in self.name
 
 
 @dataclass
-class Packet():
+class Packet:
     ptype: PacketType
     id: int = field(init=False)
     data: Dict = field(default_factory=dict)
@@ -68,7 +67,7 @@ class DataCollector:
         return self.__dict__
 
     @classmethod
-    def from_dict(self, dct):
+    def from_dict(cls, dct):
         return DataCollector(**dct)
 
 
@@ -93,7 +92,6 @@ class Node(Loggable):
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: simpy.Resource = field(init=False, repr=False)
     queue_capacity: int = field(repr=False, default=100)
-    mean_service_time: float = field(repr=False, default=10)
 
     @abstractmethod
     def __post_init__(self) -> None:
@@ -144,9 +142,10 @@ class Node(Loggable):
         """Send a packet after waiting for the transmission time
 
         Args:
-            answer_method ([SimpyProcess]): the process to run
-            packet (Packet): the packet to send
+            dest: the node that has to receive the packet
+            packet: the packet to send
         """
+
         assert packet.sender is None
         packet.sender = self
         self.log(f"sending packet {packet}...")
@@ -236,7 +235,6 @@ class DHTNode(Node):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
-        self.log(f"dhtnode, serving {packet}")
         super().manage_packet(packet)
         if packet.ptype == PacketType.GET_NODE:
             self.get_node(packet)
@@ -312,8 +310,8 @@ class DHTNode(Node):
         """
         key = packet.data["key"]
         self.ht[key] = packet.data["value"]
-        new_packet = Packet(
-            ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
+        new_packet = Packet(ptype=PacketType.SET_VALUE_REPLY,
+                            event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
 
     def ask(self, to: List[DHTNode], packet: Packet, ptype: PacketType) -> List[Request]:
@@ -322,7 +320,8 @@ class DHTNode(Node):
             if node:
                 self.log(
                     f"asking {ptype.name} to {node.name} for {packet.data}")
-                new_packet = Packet(ptype=ptype, data=packet.data)
+                new_packet = Packet(ptype=ptype,
+                                    data=packet.data)
                 sent_req = self.send_req(node, new_packet)
                 requests.append(sent_req)
         return requests
@@ -347,8 +346,9 @@ class DHTNode(Node):
 
         value = decide_value(packets)
         self.log(f"decided value {value}")
-        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY, data=dict(
-            value=value, hops=hops), event=packet.event)
+        new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY,
+                            data=dict(value=value, hops=hops),
+                            event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
 
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
@@ -362,5 +362,6 @@ class DHTNode(Node):
             hops = -1
 
         new_packet = Packet(ptype=PacketType.STORE_VALUE_REPLY,
-                            data=dict(hops=hops), event=packet.event)
+                            data=dict(hops=hops),
+                            event=packet.event)
         self.send_resp(cast(Node, packet.sender), new_packet)
