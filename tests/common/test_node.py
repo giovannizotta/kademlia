@@ -7,15 +7,6 @@ import types
 import logging
 
 
-@pytest.fixture()
-def env() -> simpy.Environment:
-    return simpy.Environment()
-
-
-@pytest.fixture(scope="module")
-def dc() -> DataCollector:
-    return DataCollector()
-
 
 class TestPacket:
     def test_id_increment(self):

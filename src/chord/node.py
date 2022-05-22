@@ -8,22 +8,23 @@ from common.utils import *
 
 @dataclass
 class ChordNode(DHTNode):
-    k: int = field(repr=False, default=0)
+    k: int = field(repr=False, default=1)
     _pred: List[Optional[ChordNode]] = field(init=False, repr=False)
     _succ: List[Optional[ChordNode]] = field(init=False, repr=False)
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
 
-    STABILIZE_PERIOD: ClassVar[float] = 200
-    STABILIZE_STDDEV: ClassVar[float] = 20
-    STABILIZE_MINCAP: ClassVar[float] = 100
-    UPDATE_FINGER_PERIOD: ClassVar[float] = 200
-    UPDATE_FINGER_STDDEV: ClassVar[float] = 20
-    UPDATE_FINGER_MINCAP: ClassVar[float] = 100
+    STABILIZE_PERIOD: float = field(default=200, repr=False)
+    STABILIZE_STDDEV: float = field(default=20, repr=False)
+    STABILIZE_MINCAP: float = field(default=100, repr=False)
+    UPDATE_FINGER_PERIOD: float = field(default=200, repr=False)
+    UPDATE_FINGER_STDDEV: float = field(default=20, repr=False)
+    UPDATE_FINGER_MINCAP: float = field(default=100, repr=False)
 
     def __post_init__(self):
         super().__post_init__()
-        self.ids = [self._compute_key(f"{self.name}_{i}") for i in range(self.k)]
+        self.ids = [self._compute_key(f"{self.name}_{i}")
+                    for i in range(self.k)]
         self.ft = [[self] * self.log_world_size for _ in self.ids]
         self._succ = [None for _ in range(self.k)]
         self._pred = [None for _ in range(self.k)]
@@ -66,7 +67,7 @@ class ChordNode(DHTNode):
     def succ(self, value: Tuple[int, ChordNode]) -> None:
         i, node = value
         self._succ[i] = node
-        # self.ft[i][self.get_index_for(node.ids[i], i)] = node
+        # self.ft[i][self._get_index_for(node.ids[i], i)] = node
         self.ft[i][-1] = node
 
     @property
@@ -78,12 +79,13 @@ class ChordNode(DHTNode):
         i, node = value
         self._pred[i] = node
 
-    def get_index_for(self, key: int, index: int) -> int:
+    def _get_index_for(self, key: int, index: int) -> int:
         dst = self._compute_distance(key, index)
         return dst if dst == 0 else int(log2(dst))
 
     def _get_best_node(self, key: int, index: int) -> Tuple[ChordNode, bool]:
-        best_node = min(self.ft[index], key=lambda node: node._compute_distance(key, index))
+        best_node = min(
+            self.ft[index], key=lambda node: node._compute_distance(key, index))
         found = best_node is self
         self.log(
             f"asked for best node for key {key}, {index}, it's {best_node if not found else 'me'}")
@@ -93,7 +95,8 @@ class ChordNode(DHTNode):
         if not found:
             self.log(
                 f"received answer, looking for: {key}, {index} -> forwarding to {best_node}")
-            new_packet = Packet(ptype=PacketType.GET_NODE, data=dict(key=key, index=index))
+            new_packet = Packet(ptype=PacketType.GET_NODE,
+                                data=dict(key=key, index=index))
             sent_req = self.send_req(best_node, new_packet)
         else:
             self.log(
@@ -120,20 +123,24 @@ class ChordNode(DHTNode):
         return self._forward(packet.data["key"], packet.data["index"], found, best_node)
 
     def find_node_on_index(self, key: int | str, index: int, ask_to: Optional[ChordNode] = None) -> SimpyProcess[
-        Tuple[Optional[ChordNode], int]]:
+            Tuple[Optional[ChordNode], int]]:
         # use different hash functions for each index by hashing key+index
-        key_hash = self._compute_key(key + str(index)) if type(key) == str else key
+        key_hash = self._compute_key(
+            key + str(index)) if type(key) == str else key
         self.log(f"start looking for nodes holding {key} for index {index}")
-        best_node, found, sent_req = self._get_best_node_and_forward(key_hash, index, ask_to)
+        best_node, found, sent_req = self._get_best_node_and_forward(
+            key_hash, index, ask_to)
         hops = 0
         while not found:
             hops += 1
             try:
                 packet = yield from self.wait_resp(sent_req)
                 packet.data["index"] = index
-                best_node, found, sent_req = self._check_best_node_and_forward(packet, best_node)
+                best_node, found, sent_req = self._check_best_node_and_forward(
+                    packet, best_node)
             except DHTTimeoutError:
-                self.log(f"find_node_on_index for {key}, {index} timed out.", level=logging.WARNING)
+                self.log(
+                    f"find_node_on_index for {key}, {index} timed out.", level=logging.WARNING)
                 return None, -1
         self.log(f"found node for key {key} on index {index}: {best_node}")
         return best_node, hops
@@ -162,15 +169,18 @@ class ChordNode(DHTNode):
             packet: Packet,
     ) -> None:
         self.succ = (packet.data["index"], packet.data["succ"])
-        self.log(f"asked to change my successor for index {packet.data['index']} to {self.succ}")
-        new_packet = Packet(ptype=PacketType.SET_SUCC_REPLY, event=packet.event)
+        self.log(
+            f"asked to change my successor for index {packet.data['index']} to {self.succ}")
+        new_packet = Packet(
+            ptype=PacketType.SET_SUCC_REPLY, event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def get_predecessor(
             self,
             packet: Packet,
     ) -> None:
-        self.log("asked what is my predecessor for index {packet.data['index']}")
+        self.log(
+            "asked what is my predecessor for index {packet.data['index']}")
         index = packet.data["index"]
         new_packet = Packet(ptype=PacketType.GET_PRED_REPLY, data=dict(pred=self.pred[index]),
                             event=packet.event)
@@ -181,8 +191,10 @@ class ChordNode(DHTNode):
             packet: Packet,
     ) -> None:
         self.pred = (packet.data["index"], packet.data["pred"])
-        self.log(f"asked to change my predecessor for index {packet.data['index']} to {self.pred}")
-        new_packet = Packet(ptype=PacketType.SET_PRED_REPLY, event=packet.event)
+        self.log(
+            f"asked to change my predecessor for index {packet.data['index']} to {self.pred}")
+        new_packet = Packet(
+            ptype=PacketType.SET_PRED_REPLY, event=packet.event)
         self.send_resp(packet.sender, new_packet)
 
     def ask_successor(self, to: ChordNode, index: int) -> Request:
@@ -194,7 +206,8 @@ class ChordNode(DHTNode):
     def send_notify(self, index: int) -> None:
         succ = self.succ[index]
         assert succ is not None
-        self.send_req(succ, Packet(ptype=PacketType.NOTIFY, data=dict(index=index, pred=self)))
+        self.send_req(succ, Packet(ptype=PacketType.NOTIFY,
+                      data=dict(index=index, pred=self)))
 
     def notify(self, packet: Packet) -> None:
         p = packet.data["pred"]
@@ -212,7 +225,8 @@ class ChordNode(DHTNode):
 
     def stabilize_on_index(self, index: int) -> SimpyProcess[None]:
         succ = self.succ[index]
-        sent_req = self.ask([succ], Packet(ptype=PacketType.GET_PRED, data=dict(index=index)), PacketType.GET_PRED)[0]
+        sent_req = self.ask([succ], Packet(
+            ptype=PacketType.GET_PRED, data=dict(index=index)), PacketType.GET_PRED)[0]
         try:
             packet = yield from self.wait_resp(sent_req)
             x = packet.data["pred"]
@@ -221,10 +235,12 @@ class ChordNode(DHTNode):
 
             self.send_notify(index)
         except DHTTimeoutError:
-            self.log(f"Timeout on stabilize on index {index}", level=logging.WARNING)
+            self.log(
+                f"Timeout on stabilize on index {index}", level=logging.WARNING)
 
     def fix_finger_on_index(self, finger_index: int, index: int) -> SimpyProcess[None]:
-        key = (self.ids[index] + 2 ** finger_index) % (2 ** self.log_world_size)
+        key = (self.ids[index] + 2 **
+               finger_index) % (2 ** self.log_world_size)
         self.log(f"Updating finger {finger_index} on index {index}")
         node, _ = yield from self.find_node_on_index(key, index)
         if node is not None:
@@ -237,7 +253,8 @@ class ChordNode(DHTNode):
             self.log("fixing fingers")
             for finger_index in range(self.log_world_size):
                 for index in range(self.k):
-                    self.env.process(self.fix_finger_on_index(finger_index, index))
+                    self.env.process(
+                        self.fix_finger_on_index(finger_index, index))
 
     def join_network(self, to: ChordNode) -> SimpyProcess[None]:
         for index in range(self.k):
