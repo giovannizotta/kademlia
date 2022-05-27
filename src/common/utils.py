@@ -108,8 +108,9 @@ class RandomBatchGenerator(metaclass=Singleton):
             choice = next(self._choices[n])
         return choice
 
-    def choose(self, nodes: Set[DHTNode]) -> DHTNode:
-        return self._rng.choice(nodes)
+    def choose(self, nodes: List[DHTNode]) -> DHTNode:
+        node : DHTNode = self._rng.choice(nodes)
+        return node
 
 
 @dataclass

@@ -110,7 +110,7 @@ class Simulator(Loggable):
             yield self.env.timeout(t)
             self.net_manager.crash_next()
 
-    def simulate_joins(self):
+    def simulate_joins(self) -> SimpyProcess[None]:
         while True:
             # generate joining requests on random exponential time
             t = self.get_join_time()

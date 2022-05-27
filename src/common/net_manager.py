@@ -10,8 +10,8 @@ class NetManager(Loggable):
     datacollector: DataCollector
     log_world_size: int
     capacity: int
-    nodes: Sequence[DHTNode] = field(init=False)
-    healthy_nodes: Sequence[DHTNode] = field(init=False)
+    nodes: List[DHTNode] = field(init=False)
+    healthy_nodes: List[DHTNode] = field(init=False)
 
     NODE_SIZE: ClassVar[float] = 1200
 
@@ -49,19 +49,25 @@ class NetManager(Loggable):
     def get_healthy_node(self) -> DHTNode:
         return self.rbg.choose(self.healthy_nodes)
 
+    def make_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
+        yield from node.crash()
+        self.healthy_nodes.remove(node)
+
     def crash_next(self) -> None:
         node = self.get_healthy_node()
-        self.healthy_nodes.remove(node)
-        self.env.process(node.crash())
+        self.env.process(self.make_node_crash(node))
 
     @abstractmethod
     def get_new_node(self) -> DHTNode:
         pass
 
-    def join_next(self):
+    def make_node_join(self, node: DHTNode, ask_to: DHTNode) -> SimpyProcess[None]:
+        yield from node.join_network(ask_to)
+        self.nodes.append(node)
+        self.healthy_nodes.append(node)
+
+    def join_next(self) -> None:
         node = self.get_new_node()
         ask_to = self.get_healthy_node()
         self.log(f"{node} trying to join, asking to {ask_to}")
-        self.env.process(node.join_network(ask_to))
-        self.nodes.append(node)
-        self.healthy_nodes.append(node)
+        self.env.process(self.make_node_join(node, ask_to))
