@@ -1,4 +1,5 @@
-from common.node import DHTNode, Node, Packet, PacketType
+from common.node import DHTNode, Node
+from common.packet import PacketType, Packet
 from common.utils import *
 
 

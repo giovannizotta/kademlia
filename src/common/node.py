@@ -2,85 +2,12 @@ from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
-from enum import auto, Enum
 
 from bitstring import BitArray
 
+from common.collector import DataCollector
+from common.packet import PacketType, Packet
 from common.utils import *
-
-
-class PacketType(Enum):
-    FIND_NODE = auto()
-    SET_PRED = auto()
-    SET_PRED_REPLY = auto()
-    SET_SUCC = auto()
-    SET_SUCC_REPLY = auto()
-    GET_SUCC = auto()
-    GET_SUCC_REPLY = auto()
-    GET_PRED = auto()
-    GET_PRED_REPLY = auto()
-    FIND_VALUE_REPLY = auto()
-    STORE_VALUE_REPLY = auto()
-    GET_NODE = auto()
-    GET_NODE_REPLY = auto()
-    FIND_VALUE = auto()
-    STORE_VALUE = auto()
-    GET_VALUE = auto()
-    SET_VALUE = auto()
-    GET_VALUE_REPLY = auto()
-    SET_VALUE_REPLY = auto()
-    NOTIFY = auto()
-
-    def is_reply(self):
-        return "REPLY" in self.name
-
-
-@dataclass
-class Packet:
-    ptype: PacketType
-    id: int = field(init=False)
-    data: Dict = field(default_factory=dict)
-    sender: Optional[Node] = field(init=False, default=None)
-    event: Optional[simpy.Event] = field(default=None)
-
-    instances: ClassVar[int] = 0
-
-    def __post_init__(self) -> None:
-        self.id = Packet.instances
-        Packet.instances += 1
-
-
-@dataclass
-class DataCollector:
-    """Collect the data from the simulation"""
-    timed_out_requests: int = 0
-    client_requests: List[Tuple[float, int]] = field(default_factory=list)
-    queue_load: Dict[str, List[Tuple[float, int]]] = field(
-        default_factory=lambda: defaultdict(list))
-
-    def clear(self):
-        self.timed_out_requests = 0
-        self.client_requests.clear()
-        self.queue_load.clear()
-
-    def to_dict(self):
-        return self.__dict__
-
-    @classmethod
-    def from_dict(cls, dct):
-        return DataCollector(**dct)
-
-
-def decide_value(packets: List[Packet]) -> Optional[Any]:
-    # give the most popular value
-    d: DefaultDict[Any, int] = defaultdict(int)
-    for packet in packets:
-        if d[packet.data["value"]] is not None:
-            d[packet.data["value"]] += 1
-    if d:
-        return max(d, key=lambda k: d[k])
-    else:
-        return None
 
 
 @dataclass
@@ -93,6 +20,7 @@ class Node(Loggable):
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: simpy.Resource = field(init=False, repr=False)
     queue_capacity: int = field(repr=False, default=100)
+    crashed: bool = field(init=False, default=False)
 
     @abstractmethod
     def __post_init__(self) -> None:
@@ -100,8 +28,15 @@ class Node(Loggable):
         self.id = self._compute_key(self.name)
         self.in_queue = simpy.Resource(self.env, capacity=1)
 
+    def crash(self) -> SimpyProcess[None]:
+        self.crashed = True
+        self.datacollector.crashed_time[self.name] = self.env.now
+        yield from []
+
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
+        if self.crashed:
+            return
         if packet.ptype.is_reply():
             assert packet.event is not None
             packet.event.succeed(value=packet)
@@ -125,7 +60,6 @@ class Node(Loggable):
             self.manage_packet(packet)
 
         self.collect_load()
-
 
     def new_req(self) -> Request:
         """Generate a new request event"""
@@ -289,6 +223,18 @@ class DHTNode(Node):
         """
         pass
 
+    @staticmethod
+    def decide_value(packets: List[Packet]) -> Optional[Any]:
+        # give the most popular value
+        d: DefaultDict[Any, int] = defaultdict(int)
+        for packet in packets:
+            if d[packet.data["value"]] is not None:
+                d[packet.data["value"]] += 1
+        if d:
+            return max(d, key=lambda k: d[k])
+        else:
+            return None
+
     def get_value(self, packet: Packet) -> None:
         """Get value associated to a given key in the node's hash table
 
@@ -345,7 +291,7 @@ class DHTNode(Node):
             if not packets:
                 hops = -1
 
-        value = decide_value(packets)
+        value = DHTNode.decide_value(packets)
         self.log(f"decided value {value}")
         new_packet = Packet(ptype=PacketType.FIND_VALUE_REPLY,
                             data=dict(value=value, hops=hops),

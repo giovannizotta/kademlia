@@ -5,8 +5,8 @@ from tqdm import tqdm
 
 from chord.net_manager import ChordNetManager
 from common.net_manager import NetManager
-from common.node import DataCollector
-from common.simulator import Simulator
+from common.collector import DataCollector
+from simulation.simulator import Simulator
 from common.utils import *
 from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
@@ -71,10 +71,10 @@ def main() -> None:
     net_manager: NetManager
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(
-            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
+            join_env, "Kad Net Manager", args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(
-            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k)
+            join_env, "Chord Net Manager", args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k)
 
     simulator = Simulator(join_env, "Simulator", net_manager,
                           keys, args.plot, mean_arrival=args.rate, ext=args.ext)
@@ -85,9 +85,14 @@ def main() -> None:
     datacollector.clear()
     # start the simulation
     run_env = simpy.Environment()
-    run_env.process(simulator.simulate(run_env))
+    simulator.change_env(run_env)
+    run_env.process(simulator.simulate_clients())
+    run_env.process(simulator.simulate_crashes())
+    run_env.process(simulator.simulate_joins())
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i + 1)
+
+    print(f"Total nodes: {len(net_manager.nodes)}, Healthy nodes: {len(net_manager.healthy_nodes)}")
 
     # dump collected data
     with open(args.file, 'w', encoding='utf8') as f:

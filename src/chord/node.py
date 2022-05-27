@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from math import log2
 
-from common.node import DHTNode, Node, Packet, PacketType
+from common.node import DHTNode, Node
+from common.packet import PacketType, Packet
 from common.utils import *
 
 
@@ -269,6 +270,7 @@ class ChordNode(DHTNode):
             packet = yield from self.wait_resp(sent_req)
             # serve response
             node_succ = packet.data["succ"]
+            assert node_succ is not None
 
             # ask them to put me in the ring
             sent_req_pred = \

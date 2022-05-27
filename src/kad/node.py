@@ -3,7 +3,8 @@ from __future__ import annotations
 from math import log2
 
 from common.client import Client
-from common.node import Node, DHTNode, Packet, PacketType
+from common.node import Node, DHTNode
+from common.packet import PacketType, Packet
 from common.utils import *
 
 

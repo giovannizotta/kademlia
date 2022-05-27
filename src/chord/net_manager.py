@@ -23,6 +23,11 @@ class ChordNetManager(NetManager):
             self.nodes[0].pred = (i, self.nodes[1])
             self.nodes[1].pred = (i, self.nodes[0])
 
+    def get_new_node(self) -> ChordNode:
+        return ChordNode(self.env, f"node_{len(self.nodes):05d}", self.datacollector,
+                         log_world_size=self.log_world_size,
+                         queue_capacity=self.capacity, k=self.k)
+
     def print_network(self, node: DHTNode, ext: str) -> None:
         node = cast(ChordNode, node)
         graph_edges = []

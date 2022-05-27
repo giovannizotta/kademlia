@@ -1,11 +1,10 @@
 from common.node import *
+from common.packet import PacketType, Packet
 from common.utils import *
 from chord.node import ChordNode
 from kad.node import KadNode
 import pytest
 import types
-import logging
-
 
 
 class TestPacket:

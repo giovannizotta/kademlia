@@ -10,6 +10,9 @@ import simpy
 import simpy.events
 
 # generic from hashable type
+if TYPE_CHECKING:
+    from common.node import DHTNode
+
 HashableT = TypeVar("HashableT", bound=Hashable)
 # return type for simpy processes
 T = TypeVar('T', covariant=True)
@@ -104,6 +107,9 @@ class RandomBatchGenerator(metaclass=Singleton):
             self._choices[n] = iter(choices)
             choice = next(self._choices[n])
         return choice
+
+    def choose(self, nodes: Set[DHTNode]) -> DHTNode:
+        return self._rng.choice(nodes)
 
 
 @dataclass

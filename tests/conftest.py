@@ -1,6 +1,7 @@
 import pytest
 import simpy
-from common.node import DataCollector
+from common.collector import DataCollector
+
 
 @pytest.fixture()
 def env() -> simpy.Environment:

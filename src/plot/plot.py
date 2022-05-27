@@ -1,10 +1,9 @@
 import json
 import matplotlib.pyplot as plt
-import numpy as np
 import os.path
 from common.utils import *
-from common.node import DataCollector
-from common.simulator import Simulator
+from common.collector import DataCollector
+from simulation.simulator import Simulator
 from argparse import ArgumentParser, Namespace
 from itertools import chain
 dhts = (Simulator.CHORD, Simulator.KAD)
