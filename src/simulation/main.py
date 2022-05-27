@@ -71,12 +71,12 @@ def main() -> None:
     net_manager: NetManager
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(
-            join_env, "Kad Net Manager", args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
+            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.alpha, args.k)
     elif args.dht == Simulator.CHORD:
         net_manager = ChordNetManager(
-            join_env, "Chord Net Manager", args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k)
+            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k)
 
-    simulator = Simulator(join_env, "Simulator", net_manager,
+    simulator = Simulator(join_env, net_manager,
                           keys, args.plot, mean_arrival=args.rate, ext=args.ext)
     join_env.process(simulator.simulate_join())
     join_env.run()
@@ -92,7 +92,8 @@ def main() -> None:
     for i in tqdm(range(args.max_time)):
         run_env.run(until=i + 1)
 
-    print(f"Total nodes: {len(net_manager.nodes)}, Healthy nodes: {len(net_manager.healthy_nodes)}")
+    print(
+        f"Total nodes: {len(net_manager.nodes)}, Healthy nodes: {len(net_manager.healthy_nodes)}")
 
     # dump collected data
     with open(args.file, 'w', encoding='utf8') as f:

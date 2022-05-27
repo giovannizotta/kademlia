@@ -4,7 +4,6 @@ from common.utils import *
 
 class TestChordNode:
     def test_init(self, env, dc):
-        n = "N1"
         mt = 1.0
         lws = 2
         mtd = 3.0
@@ -19,7 +18,6 @@ class TestChordNode:
         ufm = 700
         n1 = ChordNode(
             env,
-            n,
             datacollector=dc,
             max_timeout=mt,
             log_world_size=lws,
@@ -35,7 +33,7 @@ class TestChordNode:
             UPDATE_FINGER_MINCAP=ufm
         )
         assert n1.env is env
-        assert n1.name == n
+        assert n1.name == "ChordNode_000"
         assert n1.datacollector is dc
         assert n1.max_timeout == mt
         assert n1.log_world_size == lws

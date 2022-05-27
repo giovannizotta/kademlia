@@ -14,7 +14,7 @@ class ChordNetManager(NetManager):
         self.nodes: Sequence[ChordNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                ChordNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size,
+                ChordNode(self.env, self.datacollector, log_world_size=self.log_world_size,
                           queue_capacity=self.capacity, k=self.k))
         # hardwire two nodes
         for i in range(self.k):
@@ -24,7 +24,7 @@ class ChordNetManager(NetManager):
             self.nodes[1].pred = (i, self.nodes[0])
 
     def get_new_node(self) -> ChordNode:
-        return ChordNode(self.env, f"node_{len(self.nodes):05d}", self.datacollector,
+        return ChordNode(self.env, self.datacollector,
                          log_world_size=self.log_world_size,
                          queue_capacity=self.capacity, k=self.k)
 

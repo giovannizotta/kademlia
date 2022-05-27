@@ -15,9 +15,9 @@ class ChordNode(DHTNode):
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
 
-    STABILIZE_PERIOD: float = field(default=200, repr=False)
-    STABILIZE_STDDEV: float = field(default=20, repr=False)
-    STABILIZE_MINCAP: float = field(default=100, repr=False)
+    STABILIZE_PERIOD: float = field(default=50, repr=False)
+    STABILIZE_STDDEV: float = field(default=10, repr=False)
+    STABILIZE_MINCAP: float = field(default=30, repr=False)
     UPDATE_FINGER_PERIOD: float = field(default=200, repr=False)
     UPDATE_FINGER_STDDEV: float = field(default=20, repr=False)
     UPDATE_FINGER_MINCAP: float = field(default=100, repr=False)

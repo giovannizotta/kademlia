@@ -85,14 +85,14 @@ class KadNetManager(NetManager):
         self.trie = self.trie.get_sorted()
 
     def get_new_node(self) -> KadNode:
-        return KadNode(self.env, f"node_{len(self.nodes):05d}", self.datacollector, log_world_size=self.log_world_size,
+        return KadNode(self.env, self.datacollector, log_world_size=self.log_world_size,
                        queue_capacity=self.capacity, alpha=self.alpha, k=self.k)
 
     def create_nodes(self) -> None:
         self.nodes: Sequence[KadNode] = list()
         for i in range(self.n_nodes):
             self.nodes.append(
-                KadNode(self.env, f"node_{i:05d}", self.datacollector, log_world_size=self.log_world_size,
+                KadNode(self.env, self.datacollector, log_world_size=self.log_world_size,
                         queue_capacity=self.capacity, alpha=self.alpha, k=self.k))
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])

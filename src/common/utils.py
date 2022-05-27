@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import *
+from itertools import count
 
 import numpy as np
 import simpy
@@ -117,17 +118,25 @@ class RandomBatchGenerator(metaclass=Singleton):
 class Loggable(ABC):
     """A class for objects that can log simulation events"""
     env: simpy.Environment = field(repr=False)
-    name: str
+    name: str = field(init=False)
 
     id: int = field(init=False, repr=False)
 
     logger: logging.Logger = field(init=False, repr=False)
     rbg: RandomBatchGenerator = field(init=False, repr=False)
 
+    instance_id : ClassVar[count]
+
+    def __init_subclass__(cls, /, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        cls.instance_id = count()
+
     @abstractmethod
     def __post_init__(self) -> None:
         self.logger = logging.getLogger("logger")
         self.rbg = RandomBatchGenerator()
+        instance_count = next(self.instance_id)
+        self.name = f"{self.__class__.__name__}_{instance_count:05d}"
 
     def log(self, msg: str, level: int = logging.DEBUG) -> None:
         """Log simulation events"""

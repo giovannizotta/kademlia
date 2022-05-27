@@ -28,8 +28,8 @@ class TestNode:
 
     @pytest.fixture
     def conf_two(self, cls, env, dc):
-        n1 = cls(env, "N1", dc)
-        n2 = cls(env, "N2", dc)
+        n1 = cls(env, dc)
+        n2 = cls(env, dc)
         return n1, n2, env
 
     def test_send_recv_discard(self, conf_two):
@@ -124,8 +124,8 @@ class TestDHTNode:
 
     @pytest.fixture()
     def conf_two(self, dht_cls, env, dc):
-        n1 = dht_cls(env, "N1", dc)
-        n2 = dht_cls(env, "N2", dc)
+        n1 = dht_cls(env, dc)
+        n2 = dht_cls(env, dc)
         return n1, n2, env
 
     @pytest.fixture()
