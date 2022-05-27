@@ -1,7 +1,11 @@
 # kademlia
-Assignment for the course on Distributed Systems 2.
+Assignment for the course on **Distributed Systems 2** and **Simulation and Performance Evaluation**.
 
 The goal of this assignment is to implement the Kademlia protocol in Python and simulate its behaviour to later conduct a performance evaluation analysis. In order to have a protocol to which compare Kademlia to, we also implement the Chord DHT.
+
+For the course on Distributed Systems 2 we implemented the simulator for the Kademlia protocol and for the Chord protocol, along with some basic performance evaluation. 
+
+For the course on Simulation and Performance Evaluation we refactored the whole simulator in order to have **more control and granularity** on the creation of events for message handling. We also enhanced the Chord protocol in order to make it as robust as the Kademlia protocol in case of node failures by giving **each node a set of _K_ identities**. Then, we introduced nodes **joining and crashing during the simulation** in order for Chord to be forced to implement **periodic finger table updates** to make the comparison between the protocols fair.
 
 # Installation
 * Clone this repository: 
