@@ -1,9 +1,12 @@
+from dataclasses import dataclass, field
+from typing import List, Sequence
+
 import matplotlib.pyplot as plt
 import networkx as nx
 from networkx.drawing.nx_pydot import pydot_layout
 
-from common.net_manager import *
-from common.utils import *
+from common.net_manager import NetManager
+from common.utils import SimpyProcess
 from kad.node import KadNode
 
 
@@ -12,7 +15,6 @@ def get_key(id: int) -> str:
 
 
 class Trie(nx.DiGraph):
-
     def __init__(self):
         super().__init__()
         self.root = "A"
@@ -85,21 +87,33 @@ class KadNetManager(NetManager):
         self.trie = self.trie.get_sorted()
 
     def get_new_node(self) -> KadNode:
-        return KadNode(self.env, self.datacollector, log_world_size=self.log_world_size,
-                       queue_capacity=self.capacity, alpha=self.alpha, k=self.k)
+        return KadNode(
+            self.env,
+            self.datacollector,
+            log_world_size=self.log_world_size,
+            queue_capacity=self.capacity,
+            alpha=self.alpha,
+            k=self.k,
+        )
 
     def create_nodes(self) -> None:
         self.nodes: Sequence[KadNode] = list()
-        for i in range(self.n_nodes):
+        for _ in range(self.n_nodes):
             self.nodes.append(
-                KadNode(self.env, self.datacollector, log_world_size=self.log_world_size,
-                        queue_capacity=self.capacity, alpha=self.alpha, k=self.k))
+                KadNode(
+                    self.env,
+                    self.datacollector,
+                    log_world_size=self.log_world_size,
+                    queue_capacity=self.capacity,
+                    alpha=self.alpha,
+                    k=self.k,
+                )
+            )
         # hardwire two nodes
         self.nodes[0].update_bucket(self.nodes[1])
         self.nodes[1].update_bucket(self.nodes[0])
 
-    def print_network(self, node: DHTNode, ext: str) -> None:
-        node = cast(KadNode, node)
+    def print_network(self, node: KadNode, ext: str) -> None:
 
         # add buckets edges
         buckets_edges = []
@@ -117,7 +131,7 @@ class KadNetManager(NetManager):
         colors = [color_map[n] for n in self.trie.nodes]
 
         # get nodes size
-        ns = []
+        ns: List[int] = []
         for n in self.trie.nodes():
             if self.trie.out_degree(n) == 0:
                 ns.append(NetManager.NODE_SIZE)
@@ -127,14 +141,28 @@ class KadNetManager(NetManager):
         # draw trie
         plt.figure(figsize=(20, 12))
         pos = pydot_layout(self.trie, prog="dot")
-        nx.draw(self.trie, pos, with_labels=False,
-                node_size=ns, node_color=colors, arrowstyle="-")
-        nx.draw_networkx_edge_labels(self.trie, pos,
-                                     edge_labels=self.trie.get_labels(), rotate=False)
+        nx.draw(
+            self.trie,
+            pos,
+            with_labels=False,
+            node_size=ns,
+            node_color=colors,
+            arrowstyle="-",
+        )
+        nx.draw_networkx_edge_labels(
+            self.trie, pos, edge_labels=self.trie.get_labels(), rotate=False
+        )
 
         # draw buckets edges
-        nx.draw_networkx_edges(self.trie, pos, edgelist=buckets_edges, node_size=ns,
-                               edge_color="darkgrey", arrowstyle="-|>", connectionstyle="arc3,rad=-0.2")
+        nx.draw_networkx_edges(
+            self.trie,
+            pos,
+            edgelist=buckets_edges,
+            node_size=ns,
+            edge_color="darkgrey",
+            arrowstyle="-|>",
+            connectionstyle="arc3,rad=-0.2",
+        )
 
         plt.savefig(f"img/kad.{ext}", format=ext, bbox_inches=0, pad_inches=0)
         plt.show()

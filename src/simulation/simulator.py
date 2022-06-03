@@ -1,7 +1,13 @@
+import logging
+from dataclasses import dataclass
+from typing import ClassVar, Sequence, Tuple
+
+from simpy.core import Environment
+
 from common.client import Client
 from common.net_manager import NetManager
 from common.node import DHTNode
-from common.utils import *
+from common.utils import Loggable, SimpyProcess
 
 
 @dataclass
@@ -9,7 +15,7 @@ class Simulator(Loggable):
     net_manager: NetManager
     keys: Sequence[str]
     plot: bool
-    max_value: int = 10 ** 9
+    max_value: int = 10**9
     mean_arrival: float = 0.1
     mean_crash: float = 50
     mean_join: float = 50
@@ -53,7 +59,8 @@ class Simulator(Loggable):
             self.log(f"node {i} trying to join")
             yield self.env.process(
                 self.net_manager.nodes[i].join_network(
-                    self.net_manager.nodes[self.rbg.get_from_range(i)])
+                    self.net_manager.nodes[self.rbg.get_from_range(i)]
+                )
             )
             self.log(f"node {i} joined")
         self.log("All nodes joined", level=logging.INFO)
@@ -78,13 +85,12 @@ class Simulator(Loggable):
         yield from self.net_manager.prepare_updates()
 
         # yield simpy.AllOf(self.env, updates)
-        self.log(f"Updates are done for all nodes.", level=logging.INFO)
+        self.log("Updates are done for all nodes.", level=logging.INFO)
 
         if self.plot:
-            self.net_manager.print_network(
-                self.net_manager.nodes[10], self.ext)
+            self.net_manager.print_network(self.net_manager.nodes[10], self.ext)
 
-    def change_env(self, env: simpy.Environment) -> None:
+    def change_env(self, env: Environment) -> None:
         self.env = env
         self.net_manager.change_env(env)
 
@@ -94,9 +100,11 @@ class Simulator(Loggable):
             # generate request after random time
             t = self.get_arrival_time()
             yield self.env.timeout(t)
-            client = Client(self.env,
-                            self.net_manager.datacollector,
-                            log_world_size=self.net_manager.nodes[0].log_world_size)
+            client = Client(
+                self.env,
+                self.net_manager.datacollector,
+                log_world_size=self.net_manager.nodes[0].log_world_size,
+            )
             proc = self.get_client_behaviour(client)
             self.env.process(proc)
             i += 1

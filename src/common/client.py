@@ -1,6 +1,8 @@
+import logging
+
 from common.node import DHTNode, Node
-from common.packet import PacketType, Packet
-from common.utils import *
+from common.packet import Packet, PacketType
+from common.utils import DHTTimeoutError, SimpyProcess
 
 
 class Client(Node):
@@ -17,7 +19,8 @@ class Client(Node):
     def find_value(self, ask_to: DHTNode, key: str) -> SimpyProcess[None]:
         """Perform a find_value request and wait for the response"""
         self.log(
-            f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO)
+            f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO
+        )
         before = self.env.now
         packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key))
         sent_req = self.send_req(ask_to, packet)
@@ -28,22 +31,20 @@ class Client(Node):
             if hops == -1:
                 # the node responded but the process timed out
                 raise DHTTimeoutError()
-            self.log(
-                f"Received value: DHT[{key}] = {value}", level=logging.INFO)
+            self.log(f"Received value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
             self.datacollector.client_requests.append((after - before, hops))
         except DHTTimeoutError:
             self.datacollector.timed_out_requests += 1
-            self.log(
-                f"Request for find key {key} timed out", level=logging.WARNING)
+            self.log(f"Request for find key {key} timed out", level=logging.WARNING)
 
     def store_value(self, ask_to: DHTNode, key: str, value: int) -> SimpyProcess[None]:
         """Perform a store_value request and wait for the response"""
         self.log(
-            f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO)
+            f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO
+        )
         before = self.env.now
-        packet = Packet(ptype=PacketType.STORE_VALUE,
-                        data=dict(key=key, value=value))
+        packet = Packet(ptype=PacketType.STORE_VALUE, data=dict(key=key, value=value))
         sent_req = self.send_req(ask_to, packet)
         try:
             packet = yield from self.wait_resp(sent_req)
@@ -57,4 +58,6 @@ class Client(Node):
         except DHTTimeoutError:
             self.datacollector.timed_out_requests += 1
             self.log(
-                f"Request for  store key {key} : value {value} timed out", level=logging.WARNING)
+                f"Request for  store key {key} : value {value} timed out",
+                level=logging.WARNING,
+            )

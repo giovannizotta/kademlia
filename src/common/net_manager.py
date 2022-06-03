@@ -1,11 +1,16 @@
-from common.node import DHTNode
+from abc import abstractmethod
+from dataclasses import dataclass, field
+from typing import ClassVar, List
+
 from common.collector import DataCollector
-from common.utils import *
+from common.node import DHTNode
+from common.utils import Environment, Loggable, SimpyProcess
 
 
 @dataclass
 class NetManager(Loggable):
     """Manages a DHT network by creating and configuring the nodes"""
+
     n_nodes: int
     datacollector: DataCollector
     log_world_size: int
@@ -13,7 +18,7 @@ class NetManager(Loggable):
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
 
-    NODE_SIZE: ClassVar[float] = 1200
+    NODE_SIZE: ClassVar[int] = 1200
 
     NODE_COLOR: ClassVar[str] = "#89c2d9"
     SOURCE_COLOR: ClassVar[str] = "#f9844a"
@@ -22,7 +27,7 @@ class NetManager(Loggable):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.create_nodes()
-        self.healthy_nodes: Sequence[DHTNode] = list()
+        self.healthy_nodes: List[DHTNode] = list()
         for node in self.nodes:
             self.healthy_nodes.append(node)
 
@@ -41,7 +46,7 @@ class NetManager(Loggable):
         """Simulate an update of the network knowledge (if needed)"""
         pass
 
-    def change_env(self, env: simpy.Environment) -> None:
+    def change_env(self, env: Environment) -> None:
         self.env = env
         for node in self.nodes:
             node.change_env(env)

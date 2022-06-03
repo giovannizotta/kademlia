@@ -1,6 +1,30 @@
+[project]
+name = "kad-simulator"
+version = "0.0.1"
+description = "Kademlia simulator"
+# authors = [
+#     "Gabriele Masina",
+#     "Giovanni Zotta",
+# ]
+readme = "README.md"
+python = "^3.8"
+
 [build-system]
 requires = [
     "setuptools>=42",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203"
+
+[tool.isort]
+profile = "black"
+
+[tool.pyright]
+max-line-length = 88
+
+[tool.black]
+line-lenght = 88

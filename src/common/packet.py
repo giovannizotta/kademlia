@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import *
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
-import simpy
+from simpy.events import Event
 
 if TYPE_CHECKING:
     from common.node import Node
@@ -40,9 +40,9 @@ class PacketType(Enum):
 class Packet:
     ptype: PacketType
     id: int = field(init=False)
-    data: Dict = field(default_factory=dict)
+    data: Dict[str, Any] = field(default_factory=dict)
     sender: Optional[Node] = field(init=False, default=None)
-    event: Optional[simpy.Event] = field(default=None)
+    event: Optional[Event] = field(default=None)
 
     instances: ClassVar[int] = 0
 
