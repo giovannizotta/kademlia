@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from math import log2
 from typing import List, Optional, Tuple
 
+from simpy.core import Environment
 from simpy.events import Process
 
 from common.node import DHTNode
 from common.packet import Packet, PacketType
-from common.utils import DHTTimeoutError, Environment, Request, SimpyProcess
+from common.utils import DHTTimeoutError, Request, SimpyProcess
 
 
 @dataclass
