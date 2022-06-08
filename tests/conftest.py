@@ -1,14 +1,14 @@
 import pytest
-import simpy
+from simpy.core import Environment
+
 from common.collector import DataCollector
 
 
 @pytest.fixture()
-def env() -> simpy.Environment:
-    return simpy.Environment()
+def env() -> Environment:
+    return Environment()
 
 
 @pytest.fixture()
 def dc() -> DataCollector:
     return DataCollector()
-

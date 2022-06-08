@@ -183,10 +183,7 @@ class ChordNode(DHTNode):
             for index in range(self.k)
         ]
 
-    def get_successor(
-        self,
-        packet: Packet,
-    ) -> None:
+    def get_successor(self, packet: Packet) -> None:
         assert packet.sender is not None
         self.log("asked what my successor is")
         new_packet = Packet(
@@ -196,10 +193,7 @@ class ChordNode(DHTNode):
         )
         self.send_resp(packet.sender, new_packet)
 
-    def set_successor(
-        self,
-        packet: Packet,
-    ) -> None:
+    def set_successor(self, packet: Packet) -> None:
         assert packet.sender is not None
         self.succ = (packet.data["index"], packet.data["succ"])
         self.log(

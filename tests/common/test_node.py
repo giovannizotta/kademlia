@@ -1,10 +1,12 @@
-from common.node import *
-from common.packet import PacketType, Packet
-from common.utils import *
-from chord.node import ChordNode
-from kad.node import KadNode
-import pytest
 import types
+from typing import Type
+
+import pytest
+
+from chord.node import ChordNode
+from common.node import DHTNode, Node
+from common.packet import Packet, PacketType
+from kad.node import KadNode
 
 
 class TestPacket:
@@ -23,6 +25,7 @@ class TestNode:
     def cls(self) -> Type[Node]:
         class NonAbstractNode(Node):
             pass
+
         NonAbstractNode.__abstractmethods__ = set()
         return NonAbstractNode
 
@@ -51,8 +54,9 @@ class TestNode:
         # replace manage packet with a stub function that stores the received packets
         recv_packets = []
 
-        def stub(self: Node, packet: Packet) -> None:
+        def stub(_: Node, packet: Packet) -> None:
             recv_packets.append(packet)
+
         n2.manage_packet = types.MethodType(stub, n2)
 
         n1.send_req(n2, p1)  # immediately served
@@ -72,9 +76,12 @@ class TestNode:
         p2 = Packet(PacketType.GET_NODE, data=dict())
 
         def echo(self: Node, packet: Packet) -> None:
-            resp = Packet(PacketType.GET_NODE_REPLY,
-                          data=packet.data, event=packet.event)
+            assert packet.sender is not None
+            resp = Packet(
+                PacketType.GET_NODE_REPLY, data=packet.data, event=packet.event
+            )
             self.send_resp(packet.sender, resp)
+
         n2.manage_packet = types.MethodType(echo, n2)
 
         sent_reqs = [n1.send_req(n2, p1), n1.send_req(n2, p2)]
@@ -142,7 +149,7 @@ class TestDHTNode:
         """
         n1, n2, env = conf_two
         p = Packet(PacketType.SET_VALUE, data=dict(key=key, value=value))
-        req = n1.send_req(n2, p)
+        n1.send_req(n2, p)
         env.run()
         assert n2.ht[key] == value
 

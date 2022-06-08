@@ -22,3 +22,5 @@ profile = "black"
 
 [tool.black]
 line-lenght = 88
+
+[tool.pyright]

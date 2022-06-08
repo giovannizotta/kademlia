@@ -1,5 +1,4 @@
-from chord.node import *
-from common.utils import *
+from chord.node import ChordNode
 
 
 class TestChordNode:
@@ -30,10 +29,10 @@ class TestChordNode:
             STABILIZE_MINCAP=sm,
             UPDATE_FINGER_PERIOD=ufp,
             UPDATE_FINGER_STDDEV=ufs,
-            UPDATE_FINGER_MINCAP=ufm
+            UPDATE_FINGER_MINCAP=ufm,
         )
         assert n1.env is env
-        assert n1.name == "ChordNode_000"
+        assert n1.name == f"ChordNode_{0:05d}"
         assert n1.datacollector is dc
         assert n1.max_timeout == mt
         assert n1.log_world_size == lws
@@ -49,8 +48,9 @@ class TestChordNode:
         assert n1.UPDATE_FINGER_STDDEV == ufs
         assert n1.UPDATE_FINGER_MINCAP == ufm
         assert len(n1.ids) == k
-        assert all(id == n1._compute_key(f"{n}_{i}")
-                   for i, id in enumerate(n1.ids))
+        assert all(
+            id == n1._compute_key(f"{n1.name}_{i}") for i, id in enumerate(n1.ids)
+        )
         assert len(n1.ft) == k
         assert all(len(ft_id) == lws for ft_id in n1.ft)
         assert len(n1.succ) == k
