@@ -1,7 +1,7 @@
 import logging
 
 from common.node import DHTNode, Node
-from common.packet import Packet, PacketType
+from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, SimpyProcess
 
 
@@ -22,12 +22,12 @@ class Client(Node):
             f"Start looking for DHT[{key}], asking to {ask_to}", level=logging.INFO
         )
         before = self.env.now
-        packet = Packet(ptype=PacketType.FIND_VALUE, data=dict(key=key))
-        sent_req = self.send_req(ask_to, packet)
+        msg = Message(ptype=MessageType.FIND_VALUE, data=dict(key=key))
+        sent_req = self.send_req(ask_to, msg)
         try:
-            packet = yield from self.wait_resp(sent_req)
-            value = packet.data["value"]
-            hops = packet.data["hops"]
+            reply: Packet = yield from self.wait_resp(sent_req)
+            value = reply.message.data["value"]
+            hops = reply.message.data["hops"]
             if hops == -1:
                 # the node responded but the process timed out
                 raise DHTTimeoutError()
@@ -44,11 +44,11 @@ class Client(Node):
             f"Storing DHT[{key}] = {value}, asking to {ask_to}", level=logging.INFO
         )
         before = self.env.now
-        packet = Packet(ptype=PacketType.STORE_VALUE, data=dict(key=key, value=value))
-        sent_req = self.send_req(ask_to, packet)
+        msg = Message(ptype=MessageType.STORE_VALUE, data=dict(key=key, value=value))
+        sent_req = self.send_req(ask_to, msg)
         try:
-            packet = yield from self.wait_resp(sent_req)
-            hops = packet.data["hops"]
+            reply = yield from self.wait_resp(sent_req)
+            hops = reply.message.data["hops"]
             if hops == -1:
                 # the node responded but the process timed out
                 raise DHTTimeoutError()

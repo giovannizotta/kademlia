@@ -14,7 +14,6 @@ from typing import (
     List,
     NewType,
     Tuple,
-    TypeAlias,
     TypeVar,
 )
 
@@ -22,7 +21,7 @@ import numpy as np
 import simpy
 import simpy.events
 from simpy.core import Environment
-from simpy.events import Event, Process
+from simpy.events import Event
 
 # generic from hashable type
 if TYPE_CHECKING:
@@ -32,7 +31,7 @@ HashableT = TypeVar("HashableT", bound=Hashable)
 # return type for simpy processes
 T = TypeVar("T", covariant=True)
 C = TypeVar("C", contravariant=True)
-SimpyProcess: TypeAlias = Generator[Event | Process, simpy.events.ConditionValue, T]
+SimpyProcess = Generator[Event, simpy.events.ConditionValue, T]
 
 Request = NewType("Request", Event)
 

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from common.node import Node
 
 
-class PacketType(Enum):
+class MessageType(Enum):
     FIND_NODE = auto()
     SET_PRED = auto()
     SET_PRED_REPLY = auto()
@@ -38,14 +38,19 @@ class PacketType(Enum):
 
 @dataclass
 class Packet:
-    ptype: PacketType
+    sender: Node
+    message: Message
     id: int = field(init=False)
-    data: Dict[str, Any] = field(default_factory=dict)
-    sender: Optional[Node] = field(init=False, default=None)
-    event: Optional[Event] = field(default=None)
 
     instances: ClassVar[int] = 0
 
     def __post_init__(self) -> None:
         self.id = Packet.instances
         Packet.instances += 1
+
+
+@dataclass
+class Message:
+    ptype: MessageType
+    data: Dict[str, Any] = field(default_factory=dict)
+    event: Optional[Event] = field(default=None)

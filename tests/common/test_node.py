@@ -5,36 +5,39 @@ import pytest
 
 from chord.node import ChordNode
 from common.node import DHTNode, Node
-from common.packet import Packet, PacketType
+from common.packet import Message, MessageType, Packet
 from kad.node import KadNode
 
 
+@pytest.fixture(scope="module")
+def cls() -> Type[Node]:
+    class NonAbstractNode(Node):
+        pass
+
+    NonAbstractNode.__abstractmethods__ = set()
+    return NonAbstractNode
+
+
+@pytest.fixture
+def conf_two(cls, env, dc):
+    n1 = cls(env, dc)
+    n2 = cls(env, dc)
+    return n1, n2, env
+
+
 class TestPacket:
-    def test_id_increment(self):
+    def test_id_increment(self, conf_two):
         """
         Test packet ids are assigned incrementally
         """
-        p1 = Packet(PacketType.GET_NODE, data=dict())
-        p2 = Packet(PacketType.FIND_VALUE, data=dict())
+        n1, n2, _ = conf_two
+        p1 = Packet(n1, Message(MessageType.GET_NODE, data=dict()))
+        p2 = Packet(n2, Message(MessageType.FIND_NODE, data=dict()))
         assert p1.id == 0
         assert p2.id == 1
 
 
 class TestNode:
-    @pytest.fixture(scope="module")
-    def cls(self) -> Type[Node]:
-        class NonAbstractNode(Node):
-            pass
-
-        NonAbstractNode.__abstractmethods__ = set()
-        return NonAbstractNode
-
-    @pytest.fixture
-    def conf_two(self, cls, env, dc):
-        n1 = cls(env, dc)
-        n2 = cls(env, dc)
-        return n1, n2, env
-
     def test_send_recv_discard(self, conf_two):
         """
         Test limited size buffers.
@@ -47,10 +50,10 @@ class TestNode:
         n2.queue_capacity = 2
         n1.mean_transmission_delay = 0.001
 
-        p1 = Packet(PacketType.GET_NODE, data=dict())
-        p2 = Packet(PacketType.GET_NODE, data=dict())
-        p3 = Packet(PacketType.GET_NODE, data=dict())
-        p4 = Packet(PacketType.GET_NODE, data=dict())
+        p1 = Message(MessageType.GET_NODE, data=dict())
+        p2 = Message(MessageType.GET_NODE, data=dict())
+        p3 = Message(MessageType.GET_NODE, data=dict())
+        p4 = Message(MessageType.GET_NODE, data=dict())
         # replace manage packet with a stub function that stores the received packets
         recv_packets = []
 
@@ -72,13 +75,14 @@ class TestNode:
         Test send-reply mechanism.
         """
         n1, n2, env = conf_two
-        p1 = Packet(PacketType.GET_NODE, data=dict())
-        p2 = Packet(PacketType.GET_NODE, data=dict())
+        p1 = Message(MessageType.GET_NODE, data=dict())
+        p2 = Message(MessageType.GET_NODE, data=dict())
 
         def echo(self: Node, packet: Packet) -> None:
-            assert packet.sender is not None
-            resp = Packet(
-                PacketType.GET_NODE_REPLY, data=packet.data, event=packet.event
+            resp = Message(
+                MessageType.GET_NODE_REPLY,
+                data=packet.message.data,
+                event=packet.message.event,
             )
             self.send_resp(packet.sender, resp)
 
@@ -148,7 +152,7 @@ class TestDHTNode:
         Test set value request.
         """
         n1, n2, env = conf_two
-        p = Packet(PacketType.SET_VALUE, data=dict(key=key, value=value))
+        p = Message(MessageType.SET_VALUE, data=dict(key=key, value=value))
         n1.send_req(n2, p)
         env.run()
         assert n2.ht[key] == value
@@ -159,7 +163,7 @@ class TestDHTNode:
         """
         n1, n2, env = conf_two
         n2.ht[key] = value
-        p = Packet(PacketType.GET_VALUE, data=dict(key=key))
+        p = Message(MessageType.GET_VALUE, data=dict(key=key))
         req = n1.send_req(n2, p)
-        ans = env.run(req).data.get("value")
+        ans = env.run(req).message.data.get("value")
         assert ans == value

@@ -13,7 +13,7 @@ from simpy.events import Process
 from simpy.resources.resource import Resource
 
 from common.collector import DataCollector
-from common.packet import Packet, PacketType
+from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, Loggable, Request, SimpyProcess
 
 
@@ -43,12 +43,12 @@ class Node(Loggable):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
-        assert packet.sender is not None
         if self.crashed:
             return
-        if packet.ptype.is_reply():
-            assert packet.event is not None
-            packet.event.succeed(value=packet)
+        msg = packet.message
+        if msg.ptype.is_reply():
+            assert msg.event is not None
+            msg.event.succeed(value=packet)
 
     @abstractmethod
     def collect_load(self):
@@ -81,46 +81,44 @@ class Node(Loggable):
         self.log(f"Transmission delay: {transmission_delay}")
         yield transmission_delay
 
-    def _send_msg(self, dest: Node, packet: Packet) -> SimpyProcess[None]:
+    def _send_msg(self, dest: Node, msg: Message) -> SimpyProcess[None]:
         """Send a packet after waiting for the transmission time
 
         Args:
             dest: the node that has to receive the packet
-            packet: the packet to send
+            msg: the message to send
         """
-
-        assert packet.sender is None
-        packet.sender = self
+        packet = Packet(self, msg)
         self.log(f"sending packet {packet}...")
         yield from self._transmit()
 
         yield self.env.process(dest.recv_packet(packet))
 
-    def send_req(self, dest: Node, packet: Packet) -> Request:
+    def send_req(self, dest: Node, msg: Message) -> Request:
         """Send a packet to a destination node
 
         Args:
             dest: the destination node
-            packet (Packet): the packet to be sent
+            msg (Message): the packet to be sent
 
         Returns:
             Request: the request event that will be triggered on answer
         """
         sent_req = self.new_req()
-        packet.event = sent_req
-        self.env.process(self._send_msg(dest, packet))
+        msg.event = sent_req
+        self.env.process(self._send_msg(dest, msg))
         return sent_req
 
-    def send_resp(self, dest: Node, packet: Packet) -> None:
+    def send_resp(self, dest: Node, msg: Message) -> None:
         """Send the response to an event
 
         Args:
             recv_req (Request): the event to be processed
-            packet (Packet): the packet to send back
+            msg (Message): the packet to send back
         """
-        assert packet.event is not None
+        assert msg.event is not None
         self.log("sending response...")
-        self.env.process(self._send_msg(dest, packet))
+        self.env.process(self._send_msg(dest, msg))
 
     def wait_resps(
         self, sent_reqs: Sequence[Request], packets: List[Packet]
@@ -180,15 +178,16 @@ class DHTNode(Node):
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
         super().manage_packet(packet)
-        if packet.ptype == PacketType.GET_NODE:
+        msg = packet.message
+        if msg.ptype == MessageType.GET_NODE:
             self.get_node(packet)
-        elif packet.ptype == PacketType.FIND_VALUE:
+        elif msg.ptype == MessageType.FIND_VALUE:
             self.env.process(self.find_value(packet))
-        elif packet.ptype == PacketType.STORE_VALUE:
+        elif msg.ptype == MessageType.STORE_VALUE:
             self.env.process(self.store_value(packet))
-        elif packet.ptype == PacketType.SET_VALUE:
+        elif msg.ptype == MessageType.SET_VALUE:
             self.set_value(packet)
-        elif packet.ptype == PacketType.GET_VALUE:
+        elif msg.ptype == MessageType.GET_VALUE:
             self.get_value(packet)
 
     def collect_load(self):
@@ -235,8 +234,8 @@ class DHTNode(Node):
         # give the most popular value
         d: Dict[Any, int] = defaultdict(int)
         for packet in packets:
-            if d[packet.data["value"]] is not None:
-                d[packet.data["value"]] += 1
+            if d[packet.message.data["value"]] is not None:
+                d[packet.message.data["value"]] += 1
         if d:
             return max(d, key=lambda k: d[k])
         else:
@@ -249,14 +248,14 @@ class DHTNode(Node):
             packet (Packet): The packet containing the asked key
             recv_req (Request): The request event to answer to
         """
-        assert packet.sender is not None
-        key = packet.data["key"]
-        new_packet = Packet(
-            ptype=PacketType.GET_VALUE_REPLY,
+        msg = packet.message
+        key = msg.data["key"]
+        new_msg = Message(
+            ptype=MessageType.GET_VALUE_REPLY,
             data=dict(value=self.ht.get(key)),
-            event=packet.event,
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, new_msg)
 
     def set_value(self, packet: Packet) -> None:
         """Set the value to be associated to a given key in the node's hash table
@@ -265,21 +264,19 @@ class DHTNode(Node):
             packet (Packet): The packet containing the asked key
             recv_req (Request): The request event to answer to
         """
-        assert packet.sender is not None
-        key = packet.data["key"]
-        self.ht[key] = packet.data["value"]
-        new_packet = Packet(ptype=PacketType.SET_VALUE_REPLY, event=packet.event)
-        self.send_resp(packet.sender, new_packet)
+        msg = packet.message
+        key = msg.data["key"]
+        self.ht[key] = msg.data["value"]
+        new_msg = Message(ptype=MessageType.SET_VALUE_REPLY, event=msg.event)
+        self.send_resp(packet.sender, new_msg)
 
-    def ask(
-        self, to: List[DHTNode], packet: Packet, ptype: PacketType
-    ) -> List[Request]:
+    def ask(self, to: List[DHTNode], data: Dict, ptype: MessageType) -> List[Request]:
         requests = list()
         for node in to:
             if node:
-                self.log(f"asking {ptype.name} to {node.name} for {packet.data}")
-                new_packet = Packet(ptype=ptype, data=packet.data)
-                sent_req = self.send_req(node, new_packet)
+                self.log(f"asking {ptype.name} to {node.name} for {data}")
+                new_msg = Message(ptype=ptype, data=data)
+                sent_req = self.send_req(node, new_msg)
                 requests.append(sent_req)
         return requests
 
@@ -293,14 +290,14 @@ class DHTNode(Node):
         return list(best_nodes), max(hops)
 
     def find_value(self, packet: Packet) -> SimpyProcess[None]:
-        assert packet.sender is not None
         self.log(f"Serving {packet}")
-        key = packet.data["key"]
+        msg = packet.message
+        key = msg.data["key"]
         packets: List[Packet] = list()
         hops = -1
         try:
             nodes, hops = yield from self.unzip_find(key, self.env.all_of)
-            requests = self.ask(nodes, packet, PacketType.GET_VALUE)
+            requests = self.ask(nodes, msg.data, MessageType.GET_VALUE)
             yield from self.wait_resps(requests, packets)
         except DHTTimeoutError:
             if not packets:
@@ -308,25 +305,25 @@ class DHTNode(Node):
 
         value = DHTNode.decide_value(packets)
         self.log(f"decided value {value}")
-        new_packet = Packet(
-            ptype=PacketType.FIND_VALUE_REPLY,
+        reply = Message(
+            ptype=MessageType.FIND_VALUE_REPLY,
             data=dict(value=value, hops=hops),
-            event=packet.event,
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)
 
     def store_value(self, packet: Packet) -> SimpyProcess[None]:
         self.log(f"Serving {packet}")
-        assert packet.sender is not None
-        key = packet.data["key"]
+        msg = packet.message
+        key = msg.data["key"]
         try:
             nodes, hops = yield from self.unzip_find(key, self.env.all_of)
-            requests = self.ask(nodes, packet, PacketType.SET_VALUE)
+            requests = self.ask(nodes, msg.data, MessageType.SET_VALUE)
             yield from self.wait_resps(requests, [])
         except DHTTimeoutError:
             hops = -1
 
-        new_packet = Packet(
-            ptype=PacketType.STORE_VALUE_REPLY, data=dict(hops=hops), event=packet.event
+        reply = Message(
+            ptype=MessageType.STORE_VALUE_REPLY, data=dict(hops=hops), event=msg.event
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)

@@ -9,7 +9,7 @@ from simpy.events import Process
 
 from common.client import Client
 from common.node import DHTNode
-from common.packet import Packet, PacketType
+from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, Request, SimpyProcess
 
 
@@ -27,7 +27,6 @@ class KadNode(DHTNode):
         self.buckets = [[] for _ in range(self.log_world_size)]
 
     def process_sender(self: KadNode, packet: Packet) -> None:
-        assert packet.sender is not None
         if isinstance(packet.sender, Client):
             return
         sender = packet.sender
@@ -40,14 +39,14 @@ class KadNode(DHTNode):
         super().manage_packet(packet)
 
     def get_node(self, packet: Packet) -> None:
-        assert packet.sender is not None
-        neighs = self.pick_neighbors(packet.data["key"])
-        new_packet = Packet(
-            ptype=PacketType.GET_NODE_REPLY,
+        msg = packet.message
+        neighs = self.pick_neighbors(msg.data["key"])
+        reply = Message(
+            ptype=MessageType.GET_NODE_REPLY,
             data=dict(neighbors=neighs),
-            event=packet.event,
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)
 
     def update_candidates(
         self,
@@ -58,7 +57,7 @@ class KadNode(DHTNode):
     ) -> bool:
         current_set = set(current)
         for packet in packets:
-            for neigh in packet.data["neighbors"]:
+            for neigh in packet.message.data["neighbors"]:
                 current_set.add(neigh)
         # print(current_set)
 
@@ -104,18 +103,15 @@ class KadNode(DHTNode):
         assert len(current) > 0
         found = False
         hop = 0
-        old_current: List[KadNode] = list()
         while not found:
             requests = self.ask_neighbors(current, contacted, key_hash)
             hop += 1
-            assert requests, f"{hop}, {current}, {old_current}, {contacted}"
             packets: List[Packet] = list()
             try:
                 yield from self.wait_resps(requests, packets)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
 
-            old_current = current.copy()
             self.log(f"Received {packets}")
             found = self.update_candidates(packets, key_hash, current, contacted)
 
@@ -157,7 +153,7 @@ class KadNode(DHTNode):
         self.log(f"Contacting {to_contact} ")
         requests = list()
         for node in to_contact:
-            packet = Packet(ptype=PacketType.GET_NODE, data=dict(key=key))
+            packet = Message(ptype=MessageType.GET_NODE, data=dict(key=key))
             sent_req = self.send_req(node, packet)
             requests.append(sent_req)
         return requests

@@ -9,7 +9,7 @@ from simpy.core import Environment
 from simpy.events import Process
 
 from common.node import DHTNode
-from common.packet import Packet, PacketType
+from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, Request, SimpyProcess
 
 
@@ -38,15 +38,16 @@ class ChordNode(DHTNode):
     def manage_packet(self, packet: Packet) -> None:
         self.log(f"chord, serving {packet}")
         super().manage_packet(packet)
-        if packet.ptype == PacketType.GET_SUCC:
+        msg = packet.message
+        if msg.ptype == MessageType.GET_SUCC:
             self.get_successor(packet)
-        elif packet.ptype == PacketType.SET_SUCC:
+        elif msg.ptype == MessageType.SET_SUCC:
             self.set_successor(packet)
-        elif packet.ptype == PacketType.GET_PRED:
+        elif msg.ptype == MessageType.GET_PRED:
             self.get_predecessor(packet)
-        elif packet.ptype == PacketType.SET_PRED:
+        elif msg.ptype == MessageType.SET_PRED:
             self.set_predecessor(packet)
-        elif packet.ptype == PacketType.NOTIFY:
+        elif msg.ptype == MessageType.NOTIFY:
             self.notify(packet)
 
     def change_env(self, env: Environment) -> None:
@@ -58,16 +59,16 @@ class ChordNode(DHTNode):
         self,
         packet: Packet,
     ) -> None:
-        assert packet.sender is not None
-        key = packet.data["key"]
-        index = packet.data["index"]
+        msg = packet.message
+        key = msg.data["key"]
+        index = msg.data["index"]
         best_node, _ = self._get_best_node(key, index)
-        new_packet = Packet(
-            ptype=PacketType.GET_NODE_REPLY,
-            data=dict(best_node=best_node, key=key),
-            event=packet.event,
+        reply = Message(
+            ptype=MessageType.GET_NODE_REPLY,
+            data=dict(best_node=best_node, key=key, index=index),
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)
 
     @property
     def succ(self) -> List[Optional[ChordNode]]:
@@ -112,10 +113,8 @@ class ChordNode(DHTNode):
                 f"received answer, looking for: {key}, {index} "
                 f"-> forwarding to {best_node}"
             )
-            new_packet = Packet(
-                ptype=PacketType.GET_NODE, data=dict(key=key, index=index)
-            )
-            sent_req = self.send_req(best_node, new_packet)
+            msg = Message(ptype=MessageType.GET_NODE, data=dict(key=key, index=index))
+            sent_req = self.send_req(best_node, msg)
         else:
             self.log(
                 f"received answer, looking for: {key}, {index}"
@@ -139,10 +138,11 @@ class ChordNode(DHTNode):
     def _check_best_node_and_forward(
         self, packet: Packet, best_node: ChordNode
     ) -> Tuple[ChordNode, bool, Optional[Request]]:
-        tmp = packet.data["best_node"]
+        msg = packet.message
+        tmp = msg.data["best_node"]
         found = best_node is tmp
         best_node = tmp
-        return self._forward(packet.data["key"], packet.data["index"], found, best_node)
+        return self._forward(msg.data["key"], msg.data["index"], found, best_node)
 
     def find_node_on_index(
         self, key: int | str, index: int, ask_to: Optional[ChordNode] = None
@@ -158,10 +158,9 @@ class ChordNode(DHTNode):
             assert sent_req is not None
             hops += 1
             try:
-                packet = yield from self.wait_resp(sent_req)
-                packet.data["index"] = index
+                reply = yield from self.wait_resp(sent_req)
                 best_node, found, sent_req = self._check_best_node_and_forward(
-                    packet, best_node
+                    reply, best_node
                 )
             except DHTTimeoutError:
                 self.log(
@@ -184,55 +183,55 @@ class ChordNode(DHTNode):
         ]
 
     def get_successor(self, packet: Packet) -> None:
-        assert packet.sender is not None
         self.log("asked what my successor is")
-        new_packet = Packet(
-            ptype=PacketType.GET_SUCC_REPLY,
-            data=dict(succ=self.succ[packet.data["index"]]),
-            event=packet.event,
+        msg = packet.message
+        reply = Message(
+            ptype=MessageType.GET_SUCC_REPLY,
+            data=dict(succ=self.succ[msg.data["index"]]),
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)
 
     def set_successor(self, packet: Packet) -> None:
-        assert packet.sender is not None
-        self.succ = (packet.data["index"], packet.data["succ"])
+        msg = packet.message
+        self.succ = (msg.data["index"], msg.data["succ"])
         self.log(
             "asked to change my successor for index "
-            f"{packet.data['index']} to {self.succ}"
+            f"{msg.data['index']} to {self.succ}"
         )
-        new_packet = Packet(ptype=PacketType.SET_SUCC_REPLY, event=packet.event)
-        self.send_resp(packet.sender, new_packet)
+        reply = Message(ptype=MessageType.SET_SUCC_REPLY, event=msg.event)
+        self.send_resp(packet.sender, reply)
 
     def get_predecessor(
         self,
         packet: Packet,
     ) -> None:
-        assert packet.sender is not None
-        self.log(f"asked what is my predecessor for index {packet.data['index']}")
-        index = packet.data["index"]
-        new_packet = Packet(
-            ptype=PacketType.GET_PRED_REPLY,
+        msg = packet.message
+        self.log(f"asked what is my predecessor for index {msg.data['index']}")
+        index = msg.data["index"]
+        reply = Message(
+            ptype=MessageType.GET_PRED_REPLY,
             data=dict(pred=self.pred[index]),
-            event=packet.event,
+            event=msg.event,
         )
-        self.send_resp(packet.sender, new_packet)
+        self.send_resp(packet.sender, reply)
 
     def set_predecessor(
         self,
         packet: Packet,
     ) -> None:
-        assert packet.sender is not None
-        self.pred = (packet.data["index"], packet.data["pred"])
+        msg = packet.message
+        self.pred = (msg.data["index"], msg.data["pred"])
         self.log(
             "asked to change my predecessor for index "
-            f"{packet.data['index']} to {self.pred}"
+            f"{msg.data['index']} to {self.pred}"
         )
-        new_packet = Packet(ptype=PacketType.SET_PRED_REPLY, event=packet.event)
-        self.send_resp(packet.sender, new_packet)
+        reply = Message(ptype=MessageType.SET_PRED_REPLY, event=msg.event)
+        self.send_resp(packet.sender, reply)
 
     def ask_successor(self, to: ChordNode, index: int) -> Request:
         self.log(f"asking {to} for it's successor on index {index}")
-        packet = Packet(ptype=PacketType.GET_SUCC, data=dict(index=index))
+        packet = Message(ptype=MessageType.GET_SUCC, data=dict(index=index))
         sent_req = self.send_req(to, packet)
         return sent_req
 
@@ -241,12 +240,13 @@ class ChordNode(DHTNode):
         assert succ is not None
         self.send_req(
             succ,
-            Packet(ptype=PacketType.NOTIFY, data=dict(index=index, pred=self)),
+            Message(ptype=MessageType.NOTIFY, data=dict(index=index, pred=self)),
         )
 
     def notify(self, packet: Packet) -> None:
-        p = packet.data["pred"]
-        index = packet.data["index"]
+        msg = packet.message
+        p = msg.data["pred"]
+        index = msg.data["index"]
         if self.pred[index] is None or p in (self, self.pred[index]):
             self.pred[index] = p
 
@@ -268,12 +268,12 @@ class ChordNode(DHTNode):
         assert succ is not None
         sent_req = self.ask(
             [succ],
-            Packet(ptype=PacketType.GET_PRED, data=dict(index=index)),
-            PacketType.GET_PRED,
-        )[0]
+            dict(index=index),
+            MessageType.GET_PRED,
+        ).pop()
         try:
-            packet = yield from self.wait_resp(sent_req)
-            x = packet.data["pred"]
+            reply = yield from self.wait_resp(sent_req)
+            x = reply.message.data["pred"]
             if x in (self, succ):
                 self.succ[index] = x
 
@@ -313,32 +313,26 @@ class ChordNode(DHTNode):
             # ask node its successor
             sent_req = self.ask(
                 [node],
-                Packet(ptype=PacketType.GET_SUCC, data=dict(index=index)),
-                PacketType.GET_SUCC,
-            )[0]
+                dict(index=index),
+                MessageType.GET_SUCC,
+            ).pop()
             # wait for a response
-            packet = yield from self.wait_resp(sent_req)
+            reply = yield from self.wait_resp(sent_req)
             # serve response
-            node_succ = packet.data["succ"]
+            node_succ = reply.message.data["succ"]
             assert node_succ is not None
 
             # ask them to put me in the ring
             sent_req_pred = self.ask(
                 [node],
-                Packet(
-                    ptype=PacketType.SET_SUCC,
-                    data=dict(succ=self, index=index),
-                ),
-                PacketType.SET_SUCC,
-            )[0]
+                dict(succ=self, index=index),
+                MessageType.SET_SUCC,
+            ).pop()
             sent_req_succ = self.ask(
                 [node_succ],
-                Packet(
-                    ptype=PacketType.SET_PRED,
-                    data=dict(pred=self, index=index),
-                ),
-                PacketType.SET_PRED,
-            )[0]
+                dict(pred=self, index=index),
+                MessageType.SET_PRED,
+            ).pop()
             # wait for both answers
             yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
             # I do my rewiring
