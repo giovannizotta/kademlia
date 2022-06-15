@@ -17,9 +17,11 @@ from typing import (
     TypeVar,
 )
 
+import json
 import numpy as np
 import simpy
 import simpy.events
+from math import radians, cos, sin, asin, sqrt
 from simpy.core import Environment
 from simpy.events import Event
 
@@ -50,6 +52,58 @@ class Singleton(type):
             instance = super(Singleton, cls).__call__(*args, **kwargs)
             Singleton.__instances[cls] = instance
         return Singleton.__instances[cls]
+
+@dataclass
+class LocationManager(metaclass=Singleton):
+    filename: str = field(default="src/common/bitcoin_nodes.json")
+    iters: int = field(init=False, default = 0)
+    location_list: List[Tuple[float, float]] = field(repr=False, init=False, default_factory=list)
+    _it: Iterator[Tuple[float, float]] = field(repr=False, init=False)
+
+    def __post_init__(self):
+        self.rbg = RandomBatchGenerator()
+        self._parse_bitcoin_nodes()
+        self.rbg.shuffle(self.location_list)
+        self._it = iter(self.location_list)
+
+    def _parse_bitcoin_nodes(self):
+        with open(self.filename, "r", encoding="utf8") as f:
+            data = json.loads(f.read())
+            for node in data["nodes"].values():
+                if node[8] is not None and node[8] > 0:
+                    self.location_list.append((node[8], node[9]))
+
+    def get(self):
+        self.iters+=1
+        try:
+            return next(self._it)
+        except StopIteration:
+            self._it = iter(self.location_list)
+            return next(self._it)
+
+    def distance(self, point1: Tuple[float, float], point2: Tuple[float, float]):
+        # from https://www.geeksforgeeks.org/program-distance-two-points-earth/
+        lat1, lon1 = point1
+        lat2, lon2 = point2
+        # The math module contains a function named
+        # radians which converts from degrees to radians.
+        lon1 = radians(lon1)
+        lon2 = radians(lon2)
+        lat1 = radians(lat1)
+        lat2 = radians(lat2)
+          
+        # Haversine formula
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+     
+        c = 2 * asin(sqrt(a))
+        
+        # Radius of earth in kilometers. 
+        r = 6371
+          
+        # calculate the result
+        return int(c * r)
 
 
 @dataclass
@@ -133,6 +187,8 @@ class RandomBatchGenerator(metaclass=Singleton):
         node: DHTNode = self._rng.choice(np.array(nodes))
         return node
 
+    def shuffle(self, l: list) -> None:
+        self._rng.shuffle(l)
 
 @dataclass
 class Loggable(ABC):

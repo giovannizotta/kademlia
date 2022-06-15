@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, List
+from folium import Map
+from folium.plugins import HeatMap
 
 from common.collector import DataCollector
 from common.node import DHTNode
@@ -45,6 +47,16 @@ class NetManager(Loggable):
     def prepare_updates(self) -> SimpyProcess[None]:
         """Simulate an update of the network knowledge (if needed)"""
         pass
+
+    def plot_heatmap(self) -> None:
+        print("Plotting heatmap...", end=" ")
+        m = Map()
+        hm = HeatMap(
+            [x.location for x in self.nodes],
+            radius=20
+        )
+        m.add_child(hm)
+        m.save("heatmap.html")
 
     def change_env(self, env: Environment) -> None:
         self.env = env

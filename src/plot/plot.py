@@ -107,7 +107,7 @@ def plot_comparison(data, max_hops, ext, nodes, outputdir):
 
     ax1.set_title("Client request delays")
     ax2.set_title("Number of hops")
-    ax1.set_xlabel("Client waiting time (s)")
+    ax1.set_xlabel("Client waiting time (ms)")
     ax2.set_xlabel("Number of hops")
     ax1.set_ylabel("Estimated density")
     ax2.set_ylabel("Estimated density")
@@ -131,7 +131,7 @@ def plot_heatmap(data, max_hops, max_delay, ext, nodes, outputdir):
         assert DHT_hops.count(-1) == 0
         ax.set_title(f"{dht}")
         ax.set_ylabel("Number of hops")
-        ax.set_xlabel("Client waiting time (s)")
+        ax.set_xlabel("Client waiting time (ms)")
         get_heatmap(ax, DHT_delays, DHT_hops, max_delay, max_hops)
 
     # fig.suptitle(f"Correlation between delay and number of hops, \
@@ -236,7 +236,7 @@ def plot_arrival_delay_comparison(inputdir, ext, nodes, time, rates, outputdir):
 
         title = [f"{dht} {timeouts[dht]:4.1f}%" for dht in dhts]
         ax.set_title(f"Arrival rate: {1/rate:.1f}\nTO: {', '.join(title)}", fontsize=10)
-        ax.set_xlabel("Client waiting time (s)")
+        ax.set_xlabel("Client waiting time (ms)")
         ax.set_ylabel("Estimated density")
         ax.legend()
     # fig.suptitle(f"Average load distribution with different arrival rates,

@@ -89,6 +89,7 @@ class Simulator(Loggable):
 
         if self.plot:
             self.net_manager.print_network(self.net_manager.nodes[10], self.ext)
+            self.net_manager.plot_heatmap()
 
     def change_env(self, env: Environment) -> None:
         self.env = env

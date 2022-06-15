@@ -14,7 +14,7 @@ from simpy.resources.resource import Resource
 
 from common.collector import DataCollector
 from common.packet import Message, MessageType, Packet
-from common.utils import DHTTimeoutError, Loggable, Request, SimpyProcess
+from common.utils import DHTTimeoutError, Loggable, Request, SimpyProcess, LocationManager
 
 
 @dataclass
@@ -23,18 +23,22 @@ class Node(Loggable):
 
     datacollector: DataCollector = field(repr=False)
     mean_service_time: float = field(repr=False, default=0.1)
-    max_timeout: float = field(repr=False, default=50.0)
+    max_timeout: float = field(repr=False, default=2000.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: Resource = field(init=False, repr=False)
     queue_capacity: int = field(repr=False, default=100)
     crashed: bool = field(init=False, default=False)
+    location_manager: LocationManager = field(init=False, repr=False)
+    location: Tuple[float, float] = field(init=False, repr=False)
 
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
         self.id = self._compute_key(self.name)
         self.in_queue = Resource(self.env, capacity=1)
+        self.location_manager = LocationManager()
+        self.location = self.location_manager.get()
 
     def crash(self) -> SimpyProcess[None]:
         self.crashed = True
@@ -74,9 +78,12 @@ class Node(Loggable):
         """Generate a new request event"""
         return Request(self.env.event())
 
-    def _transmit(self) -> SimpyProcess[None]:
+    def _transmit(self, dest: Node) -> SimpyProcess[None]:
         """Wait for the transmission delay of a message"""
-        transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
+        #transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
+        distance = self.location_manager.distance(self.location, dest.location)
+        # for now, let's assume latency is 10ms every 1000km
+        transmission_time = distance / 100
         transmission_delay = self.env.timeout(transmission_time)
         self.log(f"Transmission delay: {transmission_delay}")
         yield transmission_delay
@@ -90,7 +97,7 @@ class Node(Loggable):
         """
         packet = Packet(self, msg)
         self.log(f"sending packet {packet}...")
-        yield from self._transmit()
+        yield from self._transmit(dest)
 
         yield self.env.process(dest.recv_packet(packet))
 
