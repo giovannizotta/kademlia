@@ -70,7 +70,7 @@ class LocationManager(metaclass=Singleton):
         with open(self.filename, "r", encoding="utf8") as f:
             data = json.loads(f.read())
             for node in data["nodes"].values():
-                if node[8] is not None and node[8] > 0:
+                if node[8] is not None and node[8] != 0:
                     self.location_list.append((node[8], node[9]))
 
     def get(self):
