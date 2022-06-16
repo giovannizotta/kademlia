@@ -119,6 +119,9 @@ class RandomBatchGenerator(metaclass=Singleton):
     _normals: Dict[Tuple[int, int, int], Iterator[float]] = field(
         repr=False, init=False, default_factory=dict
     )
+    _lognormals: Dict[Tuple[int, int], Iterator[float]] = field(
+        repr=False, init=False, default_factory=dict
+    )
     _choices: Dict[int, Iterator[int]] = field(
         repr=False, init=False, default_factory=dict
     )
@@ -165,6 +168,24 @@ class RandomBatchGenerator(metaclass=Singleton):
         lamb = lambda1 if x <= p else lambda2
         return self.get_exponential(1/lamb)
 
+    def get_lognormal(self, mean: float, sigma: float) -> float:
+        """Draw a number from a lognormal distribution given mean and sigma"""
+        # use ints as keys
+        mean = round(mean * self.precision)
+        sigma = round(sigma * self.precision)
+        if not (mean, sigma) in self._lognormals:
+            self._lognormals[(mean, sigma)] = iter(np.ndarray(0))
+        try:
+            sample = next(self._lognormals[(mean, sigma)])
+        except StopIteration:
+            norm = self._rng.lognormal(
+                mean / self.precision,
+                sigma / self.precision,
+                RandomBatchGenerator.BATCH_SIZE,
+            )
+            self._lognormals[(mean, sigma)] = iter(norm)
+            sample = next(self._lognormals[(mean, sigma)])
+        return sample
 
     def get_normal(self, mean: float, std_dev: float, min_cap: float) -> float:
         """Draw a number from a normal distribution given mean and stddev.
