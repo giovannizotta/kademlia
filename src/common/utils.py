@@ -122,6 +122,7 @@ class RandomBatchGenerator(metaclass=Singleton):
     _choices: Dict[int, Iterator[int]] = field(
         repr=False, init=False, default_factory=dict
     )
+    _uniforms: Iterator[float] = field(repr=False, init=False, default=iter(np.ndarray(0)))
     _rng: np.random.Generator = field(init=False, repr=False)
     seed: int = 420
     precision: int = 4
@@ -132,6 +133,14 @@ class RandomBatchGenerator(metaclass=Singleton):
         self.precision = 10**self.precision
         self._rng = np.random.default_rng(self.seed)
 
+    def get_uniform(self) -> float:
+        try:
+            sample = next(self._uniforms)
+        except StopIteration:
+            self._uniforms = iter(self._rng.uniform(size=RandomBatchGenerator.BATCH_SIZE))
+            sample = next(self._uniforms)
+        return sample
+        
     def get_exponential(self, mean: float) -> float:
         """Draw a number from an exponential with the given mean"""
         # use ints as keys
@@ -148,6 +157,14 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._exponentials[mean])
         return sample
         # return exponential
+
+    def get_hyper2_exp(self, lambda1: float, lambda2: float, p: float):
+        assert p < 0 and p > 1
+        assert lambda1 > 0 and lambda2 > 0
+        x = self.get_uniform()
+        lamb = lambda1 if x <= p else lambda2
+        return self.get_exponential(1/lamb)
+
 
     def get_normal(self, mean: float, std_dev: float, min_cap: float) -> float:
         """Draw a number from a normal distribution given mean and stddev.

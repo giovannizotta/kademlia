@@ -40,7 +40,11 @@ class Simulator(Loggable):
         return self.rbg.get_exponential(self.mean_crash)
 
     def get_join_time(self) -> float:
-        return self.rbg.get_exponential(self.mean_join)
+        # parameters from measurement 7 of BitTorrent Traffic Characteristics
+        lambda1 = 42
+        lambda2 = 0.5
+        p = 0.3
+        return self.rbg.get_hyper2_exp(lambda1, lambda2, p)
 
     def get_random_node(self) -> DHTNode:
         n_id = self.rbg.get_from_range(len(self.net_manager.nodes))
