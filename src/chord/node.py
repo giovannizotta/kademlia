@@ -21,12 +21,12 @@ class ChordNode(DHTNode):
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
 
-    STABILIZE_PERIOD: float = field(default=50, repr=False)
+    STABILIZE_PERIOD: float = field(default=500, repr=False)
     STABILIZE_STDDEV: float = field(default=10, repr=False)
     STABILIZE_MINCAP: float = field(default=30, repr=False)
-    UPDATE_FINGER_PERIOD: float = field(default=200, repr=False)
-    UPDATE_FINGER_STDDEV: float = field(default=20, repr=False)
-    UPDATE_FINGER_MINCAP: float = field(default=100, repr=False)
+    UPDATE_FINGER_PERIOD: float = field(default=2000, repr=False)
+    UPDATE_FINGER_STDDEV: float = field(default=200, repr=False)
+    UPDATE_FINGER_MINCAP: float = field(default=1000, repr=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -302,42 +302,52 @@ class ChordNode(DHTNode):
                 for index in range(self.k):
                     self.env.process(self.fix_finger_on_index(finger_index, index))
 
-    def join_network(self, to: ChordNode) -> SimpyProcess[None]:
-        for index in range(self.k):
-            self.log(f"trying to join the network from {to} on index {index}")
-            node, _ = yield from self.find_node_on_index(
-                self.ids[index], index, ask_to=to
-            )
-            assert node is not None
-            # ask to the node responsible for the key on index
-            # ask node its successor
-            sent_req = self.ask(
-                [node],
-                dict(index=index),
-                MessageType.GET_SUCC,
-            ).pop()
-            # wait for a response
-            reply = yield from self.wait_resp(sent_req)
-            # serve response
-            node_succ = reply.message.data["succ"]
-            assert node_succ is not None
+    def join_network_on_index(self, to: ChordNode, index: int) -> SimpyProcess[bool]:
+        self.log(f"trying to join the network from {to} on index {index}")
+        node, _ = yield from self.find_node_on_index(
+            self.ids[index], index, ask_to=to
+        )
+        assert node is not None
+        # ask to the node responsible for the key on index
+        # ask node its successor
+        sent_req = self.ask(
+            [node],
+            dict(index=index),
+            MessageType.GET_SUCC,
+        ).pop()
+        # wait for a response
+        reply = yield from self.wait_resp(sent_req)
+        # serve response
+        node_succ = reply.message.data["succ"]
+        if node_succ is None:
+            return False
+        assert node_succ is not None
 
-            # ask them to put me in the ring
-            sent_req_pred = self.ask(
-                [node],
-                dict(succ=self, index=index),
-                MessageType.SET_SUCC,
-            ).pop()
-            sent_req_succ = self.ask(
-                [node_succ],
-                dict(pred=self, index=index),
-                MessageType.SET_PRED,
-            ).pop()
-            # wait for both answers
-            yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
-            # I do my rewiring
-            self.pred = (index, node)
-            self.succ = (index, node_succ)
+        # ask them to put me in the ring
+        sent_req_pred = self.ask(
+            [node],
+            dict(succ=self, index=index),
+            MessageType.SET_SUCC,
+        ).pop()
+        sent_req_succ = self.ask(
+            [node_succ],
+            dict(pred=self, index=index),
+            MessageType.SET_PRED,
+        ).pop()
+        # wait for both answers
+        yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
+        # I do my rewiring
+        self.pred = (index, node)
+        self.succ = (index, node_succ)
+        return True
+
+    def join_network(self, to: ChordNode) -> SimpyProcess[bool]:
+        processes = []
+        for index in range(self.k):
+            processes.append(self.env.process(self.join_network_on_index(to, index)))
+
+        outcomes = yield self.env.all_of(processes)
+        return any(outcomes.values())
 
     def _compute_distance(self, from_key: int, index: int) -> int:
         dst = from_key - self.ids[index]

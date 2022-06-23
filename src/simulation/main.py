@@ -1,5 +1,6 @@
 import json
 import logging
+import os.path
 from argparse import ArgumentParser, Namespace
 
 from simpy.core import Environment
@@ -15,7 +16,7 @@ from simulation.simulator import Simulator
 NODES_TO_JOIN = 10
 MAX_TIME = 10.0
 WORLD_SIZE = 160
-N_KEYS = 10**4
+N_KEYS = 10**3
 QUEUE_CAPACITY = 100
 
 
@@ -50,7 +51,7 @@ def parse_args() -> Namespace:
         help="Client arrival rate (lower is faster)",
     )
     ap.add_argument(
-        "-f", "--file", type=str, required=True, help="File in which to save data"
+        "-D", "--datadir", type=str, required=True, help="Directory in which to save data"
     )
     ap.add_argument(
         "-e",
@@ -78,6 +79,11 @@ def parse_args() -> Namespace:
         help="DHT to use",
     )
     return ap.parse_args()
+
+def get_filename(args) -> str:
+    return os.path.join(args.datadir, f"{args.dht}_{args.nodes}_nodes_{args.max_time}_time_{args.rate:.01f}_rate.json")
+#/CHORD_$(NODES)_$(TIME)_$(RATE).json
+
 
 
 def main() -> None:
@@ -133,11 +139,12 @@ def main() -> None:
 
     print(
         f"Total nodes: {len(net_manager.nodes)}, "
-        f"Healthy nodes: {len(net_manager.healthy_nodes)}"
+        f"Healthy nodes: {len(net_manager.healthy_nodes)}, "
+        f"Failed to join: {net_manager.failed_to_join}"
     )
 
     # dump collected data
-    with open(args.file, "w", encoding="utf8") as f:
+    with open(get_filename(args), "w", encoding="utf8") as f:
         json.dump(datacollector.to_dict(), f, separators=(",", ":"))
 
 

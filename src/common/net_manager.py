@@ -19,6 +19,7 @@ class NetManager(Loggable):
     capacity: int
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
+    failed_to_join: int = field(init=False, default=0)
 
     NODE_SIZE: ClassVar[int] = 1200
 
@@ -79,9 +80,12 @@ class NetManager(Loggable):
         pass
 
     def make_node_join(self, node: DHTNode, ask_to: DHTNode) -> SimpyProcess[None]:
-        yield from node.join_network(ask_to)
-        self.nodes.append(node)
-        self.healthy_nodes.append(node)
+        joined = yield from node.join_network(ask_to)
+        if joined:
+            self.nodes.append(node)
+            self.healthy_nodes.append(node)
+        else:
+            self.failed_to_join += 1
 
     def join_next(self) -> None:
         node = self.get_new_node()

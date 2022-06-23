@@ -23,7 +23,7 @@ class Node(Loggable):
 
     datacollector: DataCollector = field(repr=False)
     mean_service_time: float = field(repr=False, default=0.1)
-    max_timeout: float = field(repr=False, default=2000.0)
+    max_timeout: float = field(repr=False, default=500.0)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: Resource = field(init=False, repr=False)

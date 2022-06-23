@@ -37,14 +37,14 @@ class Simulator(Loggable):
         return self.rbg.get_exponential(self.mean_arrival)
 
     def get_crash_time(self) -> float:
-        return self.rbg.get_exponential(self.mean_crash)
+        return 1000 * self.rbg.get_exponential(self.mean_crash)
 
     def get_join_time(self) -> float:
         # parameters from measurement 7 of BitTorrent Traffic Characteristics
         lambda1 = 42
         lambda2 = 0.5
         p = 0.3
-        return self.rbg.get_hyper2_exp(lambda1, lambda2, p)
+        return 1000 * self.rbg.get_hyper2_exp(lambda1, lambda2, p)
 
     def get_random_node(self) -> DHTNode:
         n_id = self.rbg.get_from_range(len(self.net_manager.nodes))
@@ -55,7 +55,9 @@ class Simulator(Loggable):
         return Simulator.CLIENT_ACTIONS[a_id]
 
     def get_random_key(self) -> str:
-        k_id = self.rbg.get_from_range(len(self.keys))
+        alpha = 1
+        n_keys = len(self.keys)
+        k_id = self.rbg.get_zipfian(alpha, n_keys)
         return self.keys[k_id]
 
     def build_network(self) -> SimpyProcess[None]:
@@ -74,7 +76,6 @@ class Simulator(Loggable):
         action = self.get_random_action()
         key = self.get_random_key()
         # send it to a random node
-        # node = self.get_random_node()
         ask_to = self.get_random_node()
         if action == Simulator.STORE:
             return client.find_value(ask_to, key)

@@ -21,6 +21,7 @@ import json
 import numpy as np
 import simpy
 import simpy.events
+import scipy.stats
 from math import radians, cos, sin, asin, sqrt
 from simpy.core import Environment
 from simpy.events import Event
@@ -122,6 +123,9 @@ class RandomBatchGenerator(metaclass=Singleton):
     _lognormals: Dict[Tuple[int, int], Iterator[float]] = field(
         repr=False, init=False, default_factory=dict
     )
+    _zipfians: Dict[Tuple[int, int], Iterator[int]] = field(
+        repr=False, init=False, default_factory=dict
+    )
     _choices: Dict[int, Iterator[int]] = field(
         repr=False, init=False, default_factory=dict
     )
@@ -160,9 +164,34 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._exponentials[mean])
         return sample
         # return exponential
+        
+    def get_zipf(self, alpha: float, n: int, size: int) -> List[int]:
+        x = np.arange(0, n)
+        weights = (x+1) ** (-alpha)
+        weights /= weights.sum()
+        return list(scipy.stats.rv_discrete(
+            name='bounded_zipf', values=(x, weights))
+            .rvs(size=size, random_state=self._rng))
+            
+        
+    def get_zipfian(self, alpha: int, n: int) -> int:
+        """Draw a number from a zipfian distribution with the given alpha and n
+        """
+        key = (alpha, n)
+        if key not in self._zipfians:
+            self._zipfians[key] = iter(np.ndarray(0))
+        try:
+            sample = next(self._zipfians[key])
+        except StopIteration:
+            zipfians = self.get_zipf(
+                float(alpha), n, size=RandomBatchGenerator.BATCH_SIZE,
+            )
+            self._zipfians[key] = iter(zipfians)
+            sample = next(self._zipfians[key])
+        return sample
 
     def get_hyper2_exp(self, lambda1: float, lambda2: float, p: float):
-        assert p < 0 and p > 1
+        assert 0 < p < 1
         assert lambda1 > 0 and lambda2 > 0
         x = self.get_uniform()
         lamb = lambda1 if x <= p else lambda2

@@ -72,7 +72,7 @@ def get_data(inputdir, n_nodes, time, rate=0):
     max_time = 0
     for dht in dhts:
         pick = open(
-            os.path.join(inputdir, f"{dht}_{n_nodes}_{time}_{rate}.json"),
+            os.path.join(inputdir, f"{dht}_{n_nodes}_nodes_{time}_time_{rate:.01f}_rate.json"),
             "r",
             encoding="utf8",
         )
@@ -157,12 +157,15 @@ def get_avg_load(load: List[Tuple[float, int]], until: float = np.inf) -> float:
         return 0
     return load_integral / time
 
+def get_max_load(load: List[Tuple[float, int]], until: float = np.inf) -> float:
+    return max((l for t, l in load if t < until), default=0)
 
 def get_load_dist(data, dht, time):
     loads = []
     for _, load in data[dht].queue_load.items():
-        avg_load = get_avg_load(load, until=time)
-        loads.append(avg_load)
+        l = get_max_load(load, until=time)
+        #l = get_avg_load(load, until=time)
+        loads.append(l)
     loads = np.array(loads)
     loads = loads[loads < np.quantile(loads, 0.95)]
 
@@ -173,13 +176,16 @@ def plot_load_distrib(
     data: Dict[str, DataCollector], ext, nodes, max_time: float, outputdir: str
 ):
     _, axes = plt.subplots(2, 2, figsize=(6, 6), sharex=True, sharey=True)
+    bound = 0
+    for dht in dhts:
+        bound = int(max(bound, max(get_load_dist(data, dht, np.inf))))
+
     for ax, time in zip(chain(*axes), np.linspace(1, max_time, num=5)[1:]):
         time = round(time)
         for dht in dhts:
             loads = get_load_dist(data, dht, time)
-            # hh, bb = np.histogram(loads, bins=20)
-            # print(hh[-10:], bb[-10:])
-            ax.hist(loads, bins=10, alpha=0.6, label=dht, density=True)
+            ax.hist(loads, range=(0, bound), bins=25, alpha=0.6, label=dht, density=True)
+            #ax.set_yscale('log')
         ax.set_xlabel("Average queue load")
         ax.set_ylabel("Estimated density")
         ax.set_title(f"Until {time} (s)")

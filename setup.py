@@ -83,7 +83,8 @@ setup(
         'matplotlib>=3.5.1',
         'pydot>=1.4.2',
         'tqdm>=4.62.3',
-        'folium>=0.12.1'
+        'folium>=0.12.1',
+        'scipy>=1.8.1'
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

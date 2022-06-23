@@ -27,21 +27,21 @@ prepare: clean
 run_chord: prepare
 	@echo "Running Chord with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@simulate --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --rate $(RATE) --file $(DATADIR)/CHORD_$(NODES)_$(TIME)_$(RATE).json
+	--seed $(SEED) --dht CHORD --loglevel $(LEVEL) --rate $(RATE) --datadir $(DATADIR)
 
 run_kad: prepare
 	@echo "Running Kad with $(NODES) nodes for $(TIME) seconds, rate: $(RATE)"
 	@simulate --nodes $(NODES) --max-time $(TIME) \
 	--seed $(SEED) --dht KAD --loglevel $(LEVEL) --alpha $(ALPHA) -k $(K) \
-	--rate $(RATE) --file $(DATADIR)/KAD_$(NODES)_$(TIME)_$(RATE).json
+	--rate $(RATE) --datadir $(DATADIR)
 
 plot_chord:
 	@simulate --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht CHORD --plot True --file $(DATADIR)/CHORD.json --ext $(EXT)
+	--seed $(SEED) --dht CHORD --plot True --datadir $(DATADIR)
 
 plot_kad:
 	@simulate --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --plot True --file $(DATADIR)/KAD.json --ext $(EXT)
+	--seed $(SEED) --dht KAD --plot True --datadir $(DATADIR)
 
 plot:
 	@plot --nodes $(NODES) --time $(TIME) --singlerate $(RATE)

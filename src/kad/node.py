@@ -120,7 +120,6 @@ class KadNode(DHTNode):
         processes = []
         self.log(f"finished find_node, nodes: {current}")
         for node in current:
-
             def p(n, h):
                 yield self.env.timeout(0)
                 return n, h
@@ -161,10 +160,14 @@ class KadNode(DHTNode):
     def _compute_distance(self, from_key: int) -> int:
         return self.id ^ from_key
 
-    def join_network(self, to: KadNode) -> SimpyProcess[None]:
+    def join_network(self, to: KadNode) -> SimpyProcess[bool]:
         self.update_bucket(to)
-        yield from self.find_node(self.id)
-        self.log("joined the network")
+        nodes, _ = yield from self.unzip_find(self.id, self.env.all_of)
+        if len(nodes) > 0:
+            self.log("Joined the network")
+            return True
+        self.log("Not able to join the network", level=logging.WARNING)
+        return False
 
 
 def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
