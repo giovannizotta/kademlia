@@ -1,12 +1,13 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, List
+
 from folium import Map
 from folium.plugins import HeatMap
 
 from common.collector import DataCollector
 from common.node import DHTNode
-from common.utils import Environment, Loggable, SimpyProcess
+from common.utils import Environment, LocationManager, Loggable, SimpyProcess
 
 
 @dataclass
@@ -20,6 +21,7 @@ class NetManager(Loggable):
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
     failed_to_join: int = field(init=False, default=0)
+    location_manager: LocationManager = field(init=False, repr=False)
 
     NODE_SIZE: ClassVar[int] = 1200
 
@@ -29,15 +31,26 @@ class NetManager(Loggable):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        self.location_manager = LocationManager()
         self.create_nodes()
         self.healthy_nodes: List[DHTNode] = list()
         for node in self.nodes:
             self.healthy_nodes.append(node)
 
     @abstractmethod
-    def create_nodes(self):
+    def _hardwire_nodes(self, node0: DHTNode, node1: DHTNode) -> None:
         """Create the DHT nodes"""
         pass
+
+    @abstractmethod
+    def get_new_node(self) -> DHTNode:
+        pass
+
+    def create_nodes(self) -> None:
+        self.nodes = list()
+        for _ in range(self.n_nodes):
+            self.nodes.append(self.get_new_node())
+        self._hardwire_nodes(self.nodes[0], self.nodes[1])
 
     @abstractmethod
     def print_network(self, node: DHTNode, ext: str) -> None:
@@ -52,10 +65,7 @@ class NetManager(Loggable):
     def plot_heatmap(self) -> None:
         print("Plotting heatmap...", end=" ")
         m = Map()
-        hm = HeatMap(
-            [x.location for x in self.nodes],
-            radius=20
-        )
+        hm = HeatMap([x.location for x in self.nodes], radius=20)
         m.add_child(hm)
         m.save("heatmap.html")
 
@@ -74,10 +84,6 @@ class NetManager(Loggable):
     def crash_next(self) -> None:
         node = self.get_healthy_node()
         self.env.process(self.make_node_crash(node))
-
-    @abstractmethod
-    def get_new_node(self) -> DHTNode:
-        pass
 
     def make_node_join(self, node: DHTNode, ask_to: DHTNode) -> SimpyProcess[None]:
         joined = yield from node.join_network(ask_to)

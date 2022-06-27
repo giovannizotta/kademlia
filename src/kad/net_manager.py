@@ -90,28 +90,16 @@ class KadNetManager(NetManager):
         return KadNode(
             self.env,
             self.datacollector,
+            location=self.location_manager.get(),
             log_world_size=self.log_world_size,
             queue_capacity=self.capacity,
             alpha=self.alpha,
             k=self.k,
         )
 
-    def create_nodes(self) -> None:
-        self.nodes: Sequence[KadNode] = list()
-        for _ in range(self.n_nodes):
-            self.nodes.append(
-                KadNode(
-                    self.env,
-                    self.datacollector,
-                    log_world_size=self.log_world_size,
-                    queue_capacity=self.capacity,
-                    alpha=self.alpha,
-                    k=self.k,
-                )
-            )
-        # hardwire two nodes
-        self.nodes[0].update_bucket(self.nodes[1])
-        self.nodes[1].update_bucket(self.nodes[0])
+    def _hardwire_nodes(self, node0: KadNode, node1: KadNode) -> None:
+        node0.update_bucket(node1)
+        node1.update_bucket(node0)
 
     def print_network(self, node: KadNode, ext: str) -> None:
 

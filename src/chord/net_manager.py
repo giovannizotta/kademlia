@@ -13,33 +13,22 @@ from common.utils import SimpyProcess
 class ChordNetManager(NetManager):
     k: int = field(repr=False, default=5)
 
-    def create_nodes(self) -> None:
-        self.nodes: List[ChordNode] = list()
-        for i in range(self.n_nodes):
-            self.nodes.append(
-                ChordNode(
-                    self.env,
-                    self.datacollector,
-                    log_world_size=self.log_world_size,
-                    queue_capacity=self.capacity,
-                    k=self.k,
-                )
-            )
-        # hardwire two nodes
-        for i in range(self.k):
-            self.nodes[0].succ = (i, self.nodes[1])
-            self.nodes[1].succ = (i, self.nodes[0])
-            self.nodes[0].pred = (i, self.nodes[1])
-            self.nodes[1].pred = (i, self.nodes[0])
-
     def get_new_node(self) -> ChordNode:
         return ChordNode(
             self.env,
             self.datacollector,
+            location=self.location_manager.get(),
             log_world_size=self.log_world_size,
             queue_capacity=self.capacity,
             k=self.k,
         )
+
+    def _hardwire_nodes(self, node0: ChordNode, node1: ChordNode) -> None:
+        for i in range(self.k):
+            node0.succ = (i, node1)
+            node1.succ = (i, node0)
+            node0.pred = (i, node1)
+            node1.pred = (i, node0)
 
     def print_network(self, node: ChordNode, ext: str) -> None:
         graph_edges = []

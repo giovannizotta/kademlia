@@ -120,6 +120,7 @@ class KadNode(DHTNode):
         processes = []
         self.log(f"finished find_node, nodes: {current}")
         for node in current:
+
             def p(n, h):
                 yield self.env.timeout(0)
                 return n, h

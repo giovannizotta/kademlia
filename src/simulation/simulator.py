@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, Sequence, Tuple
 
 from simpy.core import Environment
@@ -7,7 +7,7 @@ from simpy.core import Environment
 from common.client import Client
 from common.net_manager import NetManager
 from common.node import DHTNode
-from common.utils import Loggable, SimpyProcess
+from common.utils import LocationManager, Loggable, SimpyProcess
 
 
 @dataclass
@@ -21,6 +21,7 @@ class Simulator(Loggable):
     mean_join: float = 50
     ext: str = "pdf"
     capacity: int = 100
+    location_manager: LocationManager = field(init=False, repr=False)
 
     FIND: ClassVar[str] = "FIND"
     STORE: ClassVar[str] = "STORE"
@@ -31,6 +32,7 @@ class Simulator(Loggable):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        self.location_manager = LocationManager()
         self.id = -1
 
     def get_arrival_time(self) -> float:
@@ -109,6 +111,7 @@ class Simulator(Loggable):
             client = Client(
                 self.env,
                 self.net_manager.datacollector,
+                self.location_manager.get(),
                 log_world_size=self.net_manager.nodes[0].log_world_size,
             )
             proc = self.get_client_behaviour(client)

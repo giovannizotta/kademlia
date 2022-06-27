@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from itertools import count
+from math import asin, cos, radians, sin, sqrt
 from typing import (
     TYPE_CHECKING,
     ClassVar,
@@ -17,12 +19,10 @@ from typing import (
     TypeVar,
 )
 
-import json
 import numpy as np
+import scipy.stats
 import simpy
 import simpy.events
-import scipy.stats
-from math import radians, cos, sin, asin, sqrt
 from simpy.core import Environment
 from simpy.events import Event
 
@@ -54,11 +54,14 @@ class Singleton(type):
             Singleton.__instances[cls] = instance
         return Singleton.__instances[cls]
 
+
 @dataclass
 class LocationManager(metaclass=Singleton):
     filename: str = field(default="src/common/bitcoin_nodes.json")
-    iters: int = field(init=False, default = 0)
-    location_list: List[Tuple[float, float]] = field(repr=False, init=False, default_factory=list)
+    iters: int = field(init=False, default=0)
+    location_list: List[Tuple[float, float]] = field(
+        repr=False, init=False, default_factory=list
+    )
     _it: Iterator[Tuple[float, float]] = field(repr=False, init=False)
 
     def __post_init__(self):
@@ -75,14 +78,15 @@ class LocationManager(metaclass=Singleton):
                     self.location_list.append((node[8], node[9]))
 
     def get(self):
-        self.iters+=1
+        self.iters += 1
         try:
             return next(self._it)
         except StopIteration:
             self._it = iter(self.location_list)
             return next(self._it)
 
-    def distance(self, point1: Tuple[float, float], point2: Tuple[float, float]):
+    @staticmethod
+    def distance(point1: Tuple[float, float], point2: Tuple[float, float]):
         # from https://www.geeksforgeeks.org/program-distance-two-points-earth/
         lat1, lon1 = point1
         lat2, lon2 = point2
@@ -92,17 +96,17 @@ class LocationManager(metaclass=Singleton):
         lon2 = radians(lon2)
         lat1 = radians(lat1)
         lat2 = radians(lat2)
-          
+
         # Haversine formula
         dlon = lon2 - lon1
         dlat = lat2 - lat1
-        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-     
+        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+
         c = 2 * asin(sqrt(a))
-        
-        # Radius of earth in kilometers. 
+
+        # Radius of earth in kilometers.
         r = 6371
-          
+
         # calculate the result
         return int(c * r)
 
@@ -129,7 +133,9 @@ class RandomBatchGenerator(metaclass=Singleton):
     _choices: Dict[int, Iterator[int]] = field(
         repr=False, init=False, default_factory=dict
     )
-    _uniforms: Iterator[float] = field(repr=False, init=False, default=iter(np.ndarray(0)))
+    _uniforms: Iterator[float] = field(
+        repr=False, init=False, default=iter(np.ndarray(0))
+    )
     _rng: np.random.Generator = field(init=False, repr=False)
     seed: int = 420
     precision: int = 4
@@ -144,10 +150,12 @@ class RandomBatchGenerator(metaclass=Singleton):
         try:
             sample = next(self._uniforms)
         except StopIteration:
-            self._uniforms = iter(self._rng.uniform(size=RandomBatchGenerator.BATCH_SIZE))
+            self._uniforms = iter(
+                self._rng.uniform(size=RandomBatchGenerator.BATCH_SIZE)
+            )
             sample = next(self._uniforms)
         return sample
-        
+
     def get_exponential(self, mean: float) -> float:
         """Draw a number from an exponential with the given mean"""
         # use ints as keys
@@ -164,19 +172,19 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._exponentials[mean])
         return sample
         # return exponential
-        
+
     def get_zipf(self, alpha: float, n: int, size: int) -> List[int]:
         x = np.arange(0, n)
-        weights = (x+1) ** (-alpha)
+        weights = (x + 1) ** (-alpha)
         weights /= weights.sum()
-        return list(scipy.stats.rv_discrete(
-            name='bounded_zipf', values=(x, weights))
-            .rvs(size=size, random_state=self._rng))
-            
-        
+        return list(
+            scipy.stats.rv_discrete(name="bounded_zipf", values=(x, weights)).rvs(
+                size=size, random_state=self._rng
+            )
+        )
+
     def get_zipfian(self, alpha: int, n: int) -> int:
-        """Draw a number from a zipfian distribution with the given alpha and n
-        """
+        """Draw a number from a zipfian distribution with the given alpha and n"""
         key = (alpha, n)
         if key not in self._zipfians:
             self._zipfians[key] = iter(np.ndarray(0))
@@ -184,7 +192,9 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._zipfians[key])
         except StopIteration:
             zipfians = self.get_zipf(
-                float(alpha), n, size=RandomBatchGenerator.BATCH_SIZE,
+                float(alpha),
+                n,
+                size=RandomBatchGenerator.BATCH_SIZE,
             )
             self._zipfians[key] = iter(zipfians)
             sample = next(self._zipfians[key])
@@ -195,7 +205,7 @@ class RandomBatchGenerator(metaclass=Singleton):
         assert lambda1 > 0 and lambda2 > 0
         x = self.get_uniform()
         lamb = lambda1 if x <= p else lambda2
-        return self.get_exponential(1/lamb)
+        return self.get_exponential(1 / lamb)
 
     def get_lognormal(self, mean: float, sigma: float) -> float:
         """Draw a number from a lognormal distribution given mean and sigma"""
@@ -254,8 +264,9 @@ class RandomBatchGenerator(metaclass=Singleton):
         node: DHTNode = self._rng.choice(np.array(nodes))
         return node
 
-    def shuffle(self, l: list) -> None:
-        self._rng.shuffle(l)
+    def shuffle(self, lst: list) -> None:
+        self._rng.shuffle(lst)
+
 
 @dataclass
 class Loggable(ABC):

@@ -304,9 +304,7 @@ class ChordNode(DHTNode):
 
     def join_network_on_index(self, to: ChordNode, index: int) -> SimpyProcess[bool]:
         self.log(f"trying to join the network from {to} on index {index}")
-        node, _ = yield from self.find_node_on_index(
-            self.ids[index], index, ask_to=to
-        )
+        node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
         assert node is not None
         # ask to the node responsible for the key on index
         # ask node its successor

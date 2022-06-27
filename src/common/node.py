@@ -14,7 +14,13 @@ from simpy.resources.resource import Resource
 
 from common.collector import DataCollector
 from common.packet import Message, MessageType, Packet
-from common.utils import DHTTimeoutError, Loggable, Request, SimpyProcess, LocationManager
+from common.utils import (
+    DHTTimeoutError,
+    LocationManager,
+    Loggable,
+    Request,
+    SimpyProcess,
+)
 
 
 @dataclass
@@ -22,6 +28,7 @@ class Node(Loggable):
     """Network node"""
 
     datacollector: DataCollector = field(repr=False)
+    location: Tuple[float, float] = field(repr=False)
     mean_service_time: float = field(repr=False, default=0.1)
     max_timeout: float = field(repr=False, default=500.0)
     log_world_size: int = field(repr=False, default=10)
@@ -29,16 +36,12 @@ class Node(Loggable):
     in_queue: Resource = field(init=False, repr=False)
     queue_capacity: int = field(repr=False, default=100)
     crashed: bool = field(init=False, default=False)
-    location_manager: LocationManager = field(init=False, repr=False)
-    location: Tuple[float, float] = field(init=False, repr=False)
 
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
         self.id = self._compute_key(self.name)
         self.in_queue = Resource(self.env, capacity=1)
-        self.location_manager = LocationManager()
-        self.location = self.location_manager.get()
 
     def crash(self) -> SimpyProcess[None]:
         self.crashed = True
@@ -80,8 +83,8 @@ class Node(Loggable):
 
     def _transmit(self, dest: Node) -> SimpyProcess[None]:
         """Wait for the transmission delay of a message"""
-        #transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
-        distance = self.location_manager.distance(self.location, dest.location)
+        # transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
+        distance = LocationManager.distance(self.location, dest.location)
         # for now, let's assume latency is 10ms every 1000km
         transmission_time = distance / 100
         transmission_delay = self.env.timeout(transmission_time)
