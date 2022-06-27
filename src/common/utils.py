@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import csv
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -57,7 +57,7 @@ class Singleton(type):
 
 @dataclass
 class LocationManager(metaclass=Singleton):
-    filename: str = field(default="src/common/bitcoin_nodes.json")
+    filename: str = field(default="data/bitcoin_nodes.csv")
     iters: int = field(init=False, default=0)
     location_list: List[Tuple[float, float]] = field(
         repr=False, init=False, default_factory=list
@@ -72,10 +72,8 @@ class LocationManager(metaclass=Singleton):
 
     def _parse_bitcoin_nodes(self):
         with open(self.filename, "r", encoding="utf8") as f:
-            data = json.loads(f.read())
-            for node in data["nodes"].values():
-                if node[8] is not None and node[8] != 0:
-                    self.location_list.append((node[8], node[9]))
+            for lat, lon in csv.reader(f):
+                self.location_list.append((float(lat), float(lon)))
 
     def get(self):
         self.iters += 1
