@@ -22,9 +22,9 @@ class Simulator(Loggable):
     ext: str = "pdf"
     capacity: int = 100
     # parameters from measurement 7 of BitTorrent Traffic Characteristics
-    lambda1: float = 42
-    lambda2: float = 0.5
-    p: float = 0.3
+    join_lambda1: float = 42
+    join_lambda2: float = 0.5
+    join_p: float = 0.3
     location_manager: LocationManager = field(init=False, repr=False)
 
     FIND: ClassVar[str] = "FIND"
@@ -43,7 +43,7 @@ class Simulator(Loggable):
         return self.rbg.get_exponential(self.mean_arrival)
 
     def get_join_time(self) -> float:
-        return 1000 * self.rbg.get_hyper2_exp(self.lambda1, self.lambda2, self.p)
+        return 1000 * self.rbg.get_hyper2_exp(self.join_lambda1, self.join_lambda2, self.join_p)
 
     def get_random_node(self) -> DHTNode:
         n_id = self.rbg.get_from_range(len(self.net_manager.nodes))

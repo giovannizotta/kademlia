@@ -4,7 +4,8 @@ from runexpy.runner import ParallelRunner, SimpleRunner
 from runexpy.utils import DefaultParamsT, IterParamsT
 
 from simulation.run import DEFAULT_SEED, DEFAULT_NODES, DEFAULT_MAX_TIME, DEFAULT_LOGGING, DEFAULT_PLOT, DEFAULT_RATE, \
-    DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS
+    DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS, DEFAULT_JOINLAMBDA1, \
+    DEFAULT_JOINLAMBDA2, DEFAULT_CRASHMU, DEFAULT_CRASHSIGMA
 from simulation.simulator import Simulator
 
 
@@ -23,6 +24,10 @@ def main():
         "k": DEFAULT_K,
         "capacity": DEFAULT_QUEUE_CAPACITY,
         "nkeys": DEFAULT_N_KEYS,
+        "joinlambda1": DEFAULT_JOINLAMBDA1,
+        "joinlambda2": DEFAULT_JOINLAMBDA2,
+        "crashmu": DEFAULT_CRASHMU,
+        "crashsigma": DEFAULT_CRASHSIGMA,
         "dht": None,
     }
 

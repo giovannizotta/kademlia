@@ -15,7 +15,7 @@ from simulation.simulator import Simulator
 
 WORLD_SIZE = 160
 
-DEFAULT_MAX_TIME = 100000
+DEFAULT_MAX_TIME = 10000
 DEFAULT_NODES = 100
 DEFAULT_SEED = 420
 DEFAULT_LOGGING = "INFO"
@@ -26,6 +26,15 @@ DEFAULT_ALPHA = 3
 DEFAULT_K = 5
 DEFAULT_QUEUE_CAPACITY = 100
 DEFAULT_N_KEYS = 10 ** 3
+# parameters from BitTorrent Traffic Characteristics are
+# lambda1 = 42
+# lambda2 = 0.5
+DEFAULT_JOINLAMBDA1 = 1
+DEFAULT_JOINLAMBDA2 = 0.2
+# parameters from Table 3 of BitTorrent Traffic Characteristics are
+# mu = 8, sigma = 1.7
+DEFAULT_CRASHMU = 2
+DEFAULT_CRASHSIGMA = 0.5
 
 
 def parse_args() -> Namespace:
@@ -82,15 +91,25 @@ def parse_args() -> Namespace:
         choices=[Simulator.KAD, Simulator.CHORD],
         help="DHT to use",
     )
+    ap.add_argument(
+        "--joinlambda1", type=float, default=DEFAULT_JOINLAMBDA1, help="Parameter lambda1 for join"
+    )
+    ap.add_argument(
+        "--joinlambda2", type=float, default=DEFAULT_JOINLAMBDA2, help="Parameter lambda2 for join"
+    )
+    ap.add_argument(
+        "--crashmu", type=float, default=DEFAULT_CRASHMU, help="Parameter mu for crash"
+    )
+    ap.add_argument(
+        "--crashsigma", type=float, default=DEFAULT_CRASHSIGMA, help="Parameter sigma for crash"
+    )
+
     return ap.parse_args()
 
 
 def get_filename(args) -> str:
     return "data.json"
     # return os.path.join(args.datadir, f"{args.dht}_{args.nodes}_nodes_{args.max_time}_time_{args.rate:.01f}_rate.json")
-
-
-# /CHORD_$(NODES)_$(TIME)_$(RATE).json
 
 
 def main() -> None:
@@ -118,17 +137,27 @@ def main() -> None:
             datacollector,
             WORLD_SIZE,
             args.capacity,
+            args.crashmu,
+            args.crashsigma,
             args.alpha,
             args.k,
         )
     else:
         assert args.dht == Simulator.CHORD
         net_manager = ChordNetManager(
-            join_env, args.nodes, datacollector, WORLD_SIZE, args.capacity, args.k
+            join_env,
+            args.nodes,
+            datacollector,
+            WORLD_SIZE,
+            args.capacity,
+            args.crashmu,
+            args.crashsigma,
+            args.k
         )
 
     simulator = Simulator(
-        join_env, net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext
+        join_env, net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext, join_lambda1=args.joinlambda1,
+        join_lambda2=args.joinlambda2
     )
     join_env.process(simulator.simulate_join())
     join_env.run()

@@ -18,13 +18,12 @@ class NetManager(Loggable):
     datacollector: DataCollector
     log_world_size: int
     capacity: int
+    crash_mu: float
+    crash_sigma: float
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
     failed_to_join: int = field(init=False, default=0)
     location_manager: LocationManager = field(init=False, repr=False)
-    # parameters from Table 3 of BitTorrent Traffic Characteristics
-    mu: float = field(init=False, default=8.0)
-    sigma: float = field(init=False, default=1.7)
 
     NODE_SIZE: ClassVar[int] = 1200
 
@@ -83,13 +82,14 @@ class NetManager(Loggable):
         return self.rbg.choose(self.healthy_nodes)
 
     def get_crash_time(self) -> float:
-        return self.rbg.get_lognormal(self.mu, self.sigma)
+        return 1000 * self.rbg.get_lognormal(self.crash_mu, self.crash_sigma)
 
     def schedule_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
-        t = 1000 * self.get_crash_time()
+        t = self.get_crash_time()
         yield self.env.timeout(t)
-        node.crash()
-        self.healthy_nodes.remove(node)
+        if len(self.healthy_nodes) > 2:
+            node.crash()
+            self.healthy_nodes.remove(node)
 
     def crash_next(self) -> None:
         node = self.get_healthy_node()
