@@ -13,11 +13,19 @@ from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
 from simulation.simulator import Simulator
 
-NODES_TO_JOIN = 10
-MAX_TIME = 10.0
 WORLD_SIZE = 160
-N_KEYS = 10**3
-QUEUE_CAPACITY = 100
+
+DEFAULT_MAX_TIME = 100000
+DEFAULT_NODES = 100
+DEFAULT_SEED = 420
+DEFAULT_LOGGING = "INFO"
+DEFAULT_PLOT = False
+DEFAULT_RATE = 5
+DEFAULT_EXT = "pdf"
+DEFAULT_ALPHA = 3
+DEFAULT_K = 5
+DEFAULT_QUEUE_CAPACITY = 100
+DEFAULT_N_KEYS = 10 ** 3
 
 
 def parse_args() -> Namespace:
@@ -26,55 +34,47 @@ def parse_args() -> Namespace:
         "-t",
         "--max-time",
         type=int,
-        default=1000,
+        default=DEFAULT_MAX_TIME,
         help="Maximum time to run the simulation",
     )
     ap.add_argument(
         "-n",
         "--nodes",
         type=int,
-        default=NODES_TO_JOIN,
+        default=DEFAULT_NODES,
         help="Number of nodes that will join the network at the beginning",
     )
-    ap.add_argument("-s", "--seed", type=int, default=42, help="Random seed")
+    ap.add_argument("-s", "--seed", type=int, default=DEFAULT_SEED, help="Random seed")
     ap.add_argument(
-        "-l", "--loglevel", type=str, default=logging.INFO, help="Logging level"
+        "-l", "--loglevel", type=str, default=DEFAULT_LOGGING, help="Logging level"
     )
     ap.add_argument(
-        "-p", "--plot", type=bool, default=False, help="Plot the network graph"
+        "-p", "--plot", type=bool, default=DEFAULT_PLOT, help="Plot the network graph"
     )
     ap.add_argument(
         "-r",
         "--rate",
         type=float,
-        default=0.1,
+        default=DEFAULT_RATE,
         help="Client arrival rate (lower is faster)",
     )
-    # ap.add_argument(
-    #     "-D",
-    #     "--datadir",
-    #     type=str,
-    #     required=True,
-    #     help="Directory in which to save data",
-    # )
     ap.add_argument(
         "-e",
         "--ext",
-        default="pdf",
+        default=DEFAULT_EXT,
         choices=["pdf", "png"],
         help="Extension for network plots",
     )
     ap.add_argument(
-        "-a", "--alpha", type=int, default=3, help="Alpha value for Kademlia"
+        "-a", "--alpha", type=int, default=DEFAULT_ALPHA, help="Alpha value for Kademlia"
     )
-    ap.add_argument("-k", "--k", type=int, default=5, help="K value for Kademlia")
+    ap.add_argument("-k", "--k", type=int, default=DEFAULT_K, help="K value for Kademlia")
     ap.add_argument(
-        "-q", "--capacity", type=int, default=QUEUE_CAPACITY, help="Queue capacity"
+        "-q", "--capacity", type=int, default=DEFAULT_QUEUE_CAPACITY, help="Queue capacity"
     )
-
-    # sp = ap.add_subparsers(dest="action")
-    # kad_parser = sp.add_parser("kad", help="Kademlia")
-    # chord_parser = sp.add_parser("chord", help="Chord")
+    ap.add_argument(
+        "--nkeys", type=int, default=DEFAULT_N_KEYS, help="Number of keys"
+    )
     ap.add_argument(
         "-d",
         "--dht",
@@ -109,7 +109,7 @@ def main() -> None:
     # init the network
     join_env = Environment()
     datacollector = DataCollector()
-    keys = list(map(lambda x: f"key_{x}", range(N_KEYS)))
+    keys = list(map(lambda x: f"key_{x}", range(args.nkeys)))
     net_manager: NetManager
     if args.dht == Simulator.KAD:
         net_manager = KadNetManager(
@@ -139,10 +139,8 @@ def main() -> None:
     run_env = Environment()
     simulator.change_env(run_env)
     run_env.process(simulator.simulate_clients())
-    run_env.process(simulator.simulate_crashes())
     run_env.process(simulator.simulate_joins())
-    for i in tqdm(range(args.max_time)):
-        run_env.run(until=i + 1)
+    run_env.run(until=args.max_time)
 
     print(
         f"Total nodes: {len(net_manager.nodes)}, "

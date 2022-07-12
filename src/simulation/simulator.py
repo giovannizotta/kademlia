@@ -15,12 +15,16 @@ class Simulator(Loggable):
     net_manager: NetManager
     keys: Sequence[str]
     plot: bool
-    max_value: int = 10**9
+    max_value: int = 10 ** 9
     mean_arrival: float = 0.1
     mean_crash: float = 50
     mean_join: float = 50
     ext: str = "pdf"
     capacity: int = 100
+    # parameters from measurement 7 of BitTorrent Traffic Characteristics
+    lambda1: float = 42
+    lambda2: float = 0.5
+    p: float = 0.3
     location_manager: LocationManager = field(init=False, repr=False)
 
     FIND: ClassVar[str] = "FIND"
@@ -38,15 +42,8 @@ class Simulator(Loggable):
     def get_arrival_time(self) -> float:
         return self.rbg.get_exponential(self.mean_arrival)
 
-    def get_crash_time(self) -> float:
-        return 1000 * self.rbg.get_exponential(self.mean_crash)
-
     def get_join_time(self) -> float:
-        # parameters from measurement 7 of BitTorrent Traffic Characteristics
-        lambda1 = 42
-        lambda2 = 0.5
-        p = 0.3
-        return 1000 * self.rbg.get_hyper2_exp(lambda1, lambda2, p)
+        return 1000 * self.rbg.get_hyper2_exp(self.lambda1, self.lambda2, self.p)
 
     def get_random_node(self) -> DHTNode:
         n_id = self.rbg.get_from_range(len(self.net_manager.nodes))
@@ -117,13 +114,6 @@ class Simulator(Loggable):
             proc = self.get_client_behaviour(client)
             self.env.process(proc)
             i += 1
-
-    def simulate_crashes(self) -> SimpyProcess[None]:
-        while True:
-            # generate crashes on random exponential time
-            t = self.get_crash_time()
-            yield self.env.timeout(t)
-            self.net_manager.crash_next()
 
     def simulate_joins(self) -> SimpyProcess[None]:
         while True:

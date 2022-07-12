@@ -84,7 +84,8 @@ setup(
         'pydot>=1.4.2',
         'tqdm>=4.62.3',
         'folium>=0.12.1',
-        'scipy>=1.8.1'
+        'scipy>=1.8.1',
+        'runexpy>=0.0.1'
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -119,7 +120,7 @@ setup(
     # executes the function `main` from this package when invoked:
     entry_points={  # Optional
         'console_scripts': [
-            'simulate=simulation.main:main',
+            'simulate=simulation.run:main',
             'plot=plot.plot:main',
         ],
     },

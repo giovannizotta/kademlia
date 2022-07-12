@@ -22,6 +22,9 @@ class NetManager(Loggable):
     healthy_nodes: List[DHTNode] = field(init=False)
     failed_to_join: int = field(init=False, default=0)
     location_manager: LocationManager = field(init=False, repr=False)
+    # parameters from Table 3 of BitTorrent Traffic Characteristics
+    mu: float = field(init=False, default=8.0)
+    sigma: float = field(init=False, default=1.7)
 
     NODE_SIZE: ClassVar[int] = 1200
 
@@ -73,23 +76,30 @@ class NetManager(Loggable):
         self.env = env
         for node in self.nodes:
             node.change_env(env)
+            self.env.process(self.schedule_node_crash(node))
 
     def get_healthy_node(self) -> DHTNode:
         return self.rbg.choose(self.healthy_nodes)
 
-    def make_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
-        yield from node.crash()
+    def get_crash_time(self) -> float:
+        return self.rbg.get_lognormal(self.mu, self.sigma)
+
+    def schedule_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
+        t = 1000 * self.get_crash_time()
+        yield self.env.timeout(t)
+        node.crash()
         self.healthy_nodes.remove(node)
 
     def crash_next(self) -> None:
         node = self.get_healthy_node()
-        self.env.process(self.make_node_crash(node))
+        self.env.process(self.schedule_node_crash(node))
 
     def make_node_join(self, node: DHTNode, ask_to: DHTNode) -> SimpyProcess[None]:
         joined = yield from node.join_network(ask_to)
         if joined:
             self.nodes.append(node)
             self.healthy_nodes.append(node)
+            self.env.process(self.schedule_node_crash(node))
         else:
             self.failed_to_join += 1
 

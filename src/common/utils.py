@@ -58,7 +58,7 @@ class Singleton(type):
 
 @dataclass
 class LocationManager(metaclass=Singleton):
-    filename: str = field(default="../../../../data/bitcoin_nodes.csv")
+    filename: str = field(default=os.path.join(os.path.dirname(__file__), "../../data/bitcoin_nodes.csv"))
     iters: int = field(init=False, default=0)
     location_list: List[Tuple[float, float]] = field(
         repr=False, init=False, default_factory=list

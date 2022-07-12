@@ -43,10 +43,9 @@ class Node(Loggable):
         self.id = self._compute_key(self.name)
         self.in_queue = Resource(self.env, capacity=1)
 
-    def crash(self) -> SimpyProcess[None]:
+    def crash(self) -> None:
         self.crashed = True
         self.datacollector.crashed_time[self.name] = self.env.now
-        yield from []
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
