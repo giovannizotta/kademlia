@@ -77,6 +77,7 @@ class NetManager(Loggable):
         for node in self.nodes:
             node.change_env(env)
             self.env.process(self.schedule_node_crash(node))
+            self.datacollector.joined_time[node.name] = 0.0
 
     def get_healthy_node(self) -> DHTNode:
         return self.rbg.choose(self.healthy_nodes)
@@ -98,6 +99,7 @@ class NetManager(Loggable):
         joined = yield from node.join_network(ask_to)
         if joined:
             self.nodes.append(node)
+            self.datacollector.joined_time[node.name] = self.env.now
             self.healthy_nodes.append(node)
             self.env.process(self.schedule_node_crash(node))
         else:
