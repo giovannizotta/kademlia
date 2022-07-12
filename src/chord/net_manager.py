@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -25,14 +25,14 @@ class ChordNetManager(NetManager):
 
     def _hardwire_nodes(self, node0: ChordNode, node1: ChordNode) -> None:
         for i in range(self.k):
-            node0.succ = (i, node1)
-            node1.succ = (i, node0)
-            node0.pred = (i, node1)
-            node1.pred = (i, node0)
+            node0.succ[i] = node1
+            node1.succ[i] = node0
+            node0.pred[i] = node1
+            node1.pred[i] = node0
 
     def print_network(self, node: ChordNode, ext: str) -> None:
         graph_edges = []
-        start = self.nodes[0]
+        start = cast(ChordNode, self.nodes[0])
         ptr = start.succ[0]
         while ptr != start:
             assert ptr is not None

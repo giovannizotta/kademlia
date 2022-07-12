@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from itertools import count
 from math import asin, cos, radians, sin, sqrt
+import os
 from typing import (
     TYPE_CHECKING,
     ClassVar,
@@ -57,7 +58,7 @@ class Singleton(type):
 
 @dataclass
 class LocationManager(metaclass=Singleton):
-    filename: str = field(default="data/bitcoin_nodes.csv")
+    filename: str = field(default="../../../../data/bitcoin_nodes.csv")
     iters: int = field(init=False, default=0)
     location_list: List[Tuple[float, float]] = field(
         repr=False, init=False, default_factory=list
@@ -84,7 +85,7 @@ class LocationManager(metaclass=Singleton):
             return next(self._it)
 
     @staticmethod
-    def distance(point1: Tuple[float, float], point2: Tuple[float, float]):
+    def distance(point1: Tuple[float, float], point2: Tuple[float, float]) -> float:
         # from https://www.geeksforgeeks.org/program-distance-two-points-earth/
         lat1, lon1 = point1
         lat2, lon2 = point2
@@ -198,7 +199,7 @@ class RandomBatchGenerator(metaclass=Singleton):
             sample = next(self._zipfians[key])
         return sample
 
-    def get_hyper2_exp(self, lambda1: float, lambda2: float, p: float):
+    def get_hyper2_exp(self, lambda1: float, lambda2: float, p: float) -> float:
         assert 0 < p < 1
         assert lambda1 > 0 and lambda2 > 0
         x = self.get_uniform()

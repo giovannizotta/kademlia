@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from math import log2
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, SupportsIndex, Tuple
 
 from simpy.core import Environment
 from simpy.events import Process
@@ -13,11 +13,24 @@ from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, Request, SimpyProcess
 
 
+class _SuccView(List[Optional["ChordNode"]]):
+    def __init__(
+        self, node: ChordNode, iterable: Iterable[Optional["ChordNode"]]
+    ) -> None:
+        super().__init__(iterable)
+        self.node = node
+
+    def __setitem__(self, i: SupportsIndex, node: ChordNode) -> None:
+        super().__setitem__(i, node)
+        # self.ft[i][self._get_index_for(node.ids[i], i)] = node
+        self.node.ft[i][-1] = node
+
+
 @dataclass
 class ChordNode(DHTNode):
     k: int = field(repr=False, default=1)
     _pred: List[Optional[ChordNode]] = field(init=False, repr=False)
-    _succ: List[Optional[ChordNode]] = field(init=False, repr=False)
+    _succ: _SuccView = field(init=False, repr=False)
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
 
@@ -32,7 +45,7 @@ class ChordNode(DHTNode):
         super().__post_init__()
         self.ids = [self._compute_key(f"{self.name}_{i}") for i in range(self.k)]
         self.ft = [[self] * self.log_world_size for _ in self.ids]
-        self._succ = [None for _ in range(self.k)]
+        self._succ = _SuccView(self, [None for _ in range(self.k)])
         self._pred = [None for _ in range(self.k)]
 
     def manage_packet(self, packet: Packet) -> None:
@@ -71,15 +84,15 @@ class ChordNode(DHTNode):
         self.send_resp(packet.sender, reply)
 
     @property
-    def succ(self) -> List[Optional[ChordNode]]:
+    def succ(self) -> _SuccView:
         return self._succ
 
-    @succ.setter
-    def succ(self, value: Tuple[int, ChordNode]) -> None:
-        i, node = value
-        self._succ[i] = node
-        # self.ft[i][self._get_index_for(node.ids[i], i)] = node
-        self.ft[i][-1] = node
+    # @succ.setter
+    # def succ(self, value: Tuple[int, ChordNode]) -> None:
+    #     i, node = value
+    #     self._succ[i] = node
+    #     # self.ft[i][self._get_index_for(node.ids[i], i)] = node
+    #     self.ft[i][-1] = node
 
     @property
     def pred(self) -> List[Optional[ChordNode]]:
@@ -194,7 +207,7 @@ class ChordNode(DHTNode):
 
     def set_successor(self, packet: Packet) -> None:
         msg = packet.message
-        self.succ = (msg.data["index"], msg.data["succ"])
+        self.succ[msg.data["index"]] = msg.data["succ"]
         self.log(
             "asked to change my successor for index "
             f"{msg.data['index']} to {self.succ}"
@@ -336,7 +349,7 @@ class ChordNode(DHTNode):
         yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
         # I do my rewiring
         self.pred = (index, node)
-        self.succ = (index, node_succ)
+        self.succ[index] = node_succ
         return True
 
     def join_network(self, to: ChordNode) -> SimpyProcess[bool]:

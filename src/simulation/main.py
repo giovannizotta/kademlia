@@ -50,9 +50,13 @@ def parse_args() -> Namespace:
         default=0.1,
         help="Client arrival rate (lower is faster)",
     )
-    ap.add_argument(
-        "-D", "--datadir", type=str, required=True, help="Directory in which to save data"
-    )
+    # ap.add_argument(
+    #     "-D",
+    #     "--datadir",
+    #     type=str,
+    #     required=True,
+    #     help="Directory in which to save data",
+    # )
     ap.add_argument(
         "-e",
         "--ext",
@@ -63,7 +67,7 @@ def parse_args() -> Namespace:
     ap.add_argument(
         "-a", "--alpha", type=int, default=3, help="Alpha value for Kademlia"
     )
-    ap.add_argument("-k", type=int, default=5, help="K value for Kademlia")
+    ap.add_argument("-k", "--k", type=int, default=5, help="K value for Kademlia")
     ap.add_argument(
         "-q", "--capacity", type=int, default=QUEUE_CAPACITY, help="Queue capacity"
     )
@@ -80,10 +84,13 @@ def parse_args() -> Namespace:
     )
     return ap.parse_args()
 
-def get_filename(args) -> str:
-    return os.path.join(args.datadir, f"{args.dht}_{args.nodes}_nodes_{args.max_time}_time_{args.rate:.01f}_rate.json")
-#/CHORD_$(NODES)_$(TIME)_$(RATE).json
 
+def get_filename(args) -> str:
+    return "data.json"
+    # return os.path.join(args.datadir, f"{args.dht}_{args.nodes}_nodes_{args.max_time}_time_{args.rate:.01f}_rate.json")
+
+
+# /CHORD_$(NODES)_$(TIME)_$(RATE).json
 
 
 def main() -> None:
@@ -91,7 +98,7 @@ def main() -> None:
     # init the logger
     logger = logging.getLogger("logger")
     logger.setLevel(args.loglevel)
-    fh = logging.FileHandler(f"logs/{args.dht}_logs.log", mode="w")
+    fh = logging.FileHandler(f"{args.dht}_logs.log", mode="w")
     fh.setLevel(args.loglevel)
     formatter = logging.Formatter("%(levelname)10s: %(message)s")
     fh.setFormatter(formatter)
