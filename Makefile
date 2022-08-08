@@ -41,7 +41,7 @@ plot_chord:
 
 plot_kad:
 	@simulate --nodes $(NODES) --max-time $(TIME) \
-	--seed $(SEED) --dht KAD --plot True --datadir $(DATADIR)
+	--seed $(SEED) --dht KAD --plot True 
 
 plot:
 	@plot --nodes $(NODES) --time $(TIME) --singlerate $(RATE)

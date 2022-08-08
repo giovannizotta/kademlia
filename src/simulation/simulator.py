@@ -1,4 +1,5 @@
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import ClassVar, Sequence, Tuple
 
@@ -43,6 +44,8 @@ class Simulator(Loggable):
         return self.rbg.get_exponential(self.mean_arrival)
 
     def get_join_time(self) -> float:
+        if self.join_lambda1 == 0 and self.join_lambda2 == 0:
+            return math.inf
         return 1000 * self.rbg.get_hyper2_exp(self.join_lambda1, self.join_lambda2, self.join_p)
 
     def get_random_node(self) -> DHTNode:

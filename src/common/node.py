@@ -85,6 +85,7 @@ class Node(Loggable):
         # transmission_time = self.rbg.get_exponential(self.mean_transmission_delay)
         distance = LocationManager.distance(self.location, dest.location)
         # for now, let's assume latency is 10ms every 1000km
+        # https://www.oneneck.com/blog/estimating-wan-latency-requirements/
         transmission_time = distance / 100
         transmission_delay = self.env.timeout(transmission_time)
         self.log(f"Transmission delay: {transmission_delay}")

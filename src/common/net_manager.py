@@ -1,3 +1,4 @@
+import math
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, List
@@ -82,6 +83,8 @@ class NetManager(Loggable):
         return self.rbg.choose(self.healthy_nodes)
 
     def get_crash_time(self) -> float:
+        if self.crash_mu == 0 and self.crash_sigma == 0:
+            return math.inf
         return 1000 * self.rbg.get_lognormal(self.crash_mu, self.crash_sigma)
 
     def schedule_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
