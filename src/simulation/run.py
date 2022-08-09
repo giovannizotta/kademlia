@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os.path
@@ -11,6 +13,10 @@ from common.collector import DataCollector
 from common.net_manager import NetManager
 from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
+from simulation.constants import WORLD_SIZE, DEFAULT_MAX_TIME, DEFAULT_NODES, DEFAULT_SEED, DEFAULT_LOGGING, \
+    DEFAULT_PLOT, DEFAULT_CLIENT_RATE, DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS, \
+    DEFAULT_JOINLAMBDA1, DEFAULT_JOINLAMBDA2, DEFAULT_JOINRATE, DEFAULT_CRASHMEAN, DEFAULT_CRASHVARIANCE, \
+    DEFAULT_CRASHRATE
 from simulation.simulator import Simulator
 
 WORLD_SIZE = 160

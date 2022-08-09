@@ -3,9 +3,18 @@ from runexpy.result import Result
 from runexpy.runner import ParallelRunner, SimpleRunner
 from runexpy.utils import DefaultParamsT, IterParamsT
 
-from simulation.run import DEFAULT_SEED, DEFAULT_NODES, DEFAULT_MAX_TIME, DEFAULT_LOGGING, DEFAULT_CLIENT_RATE, \
+from simulation.constants import DEFAULT_MAX_TIME, DEFAULT_NODES, DEFAULT_SEED, DEFAULT_LOGGING, DEFAULT_CLIENT_RATE, \
     DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS, DEFAULT_JOINRATE, DEFAULT_CRASHRATE
 from simulation.simulator import Simulator
+
+CONF: IterParamsT = {
+    "dht": [Simulator.KAD, Simulator.CHORD],
+    "rate": [1, 2, 5, 10],
+    "seed": [420],
+    "nkeys": [10, 100, 2500],
+    "crashrate": [0.5, 1, 2, 10],
+    "joinrate": [0.5, 1, 2, 10],
+}
 
 
 def main():
@@ -28,22 +37,12 @@ def main():
         "dht": None,
     }
 
-    campaign = Campaign.new(script, campaign_dir, default_params, overwrite=True)
+    campaign = Campaign.new(script, campaign_dir, default_params)
 
-    configs: IterParamsT = {
-        "dht": [Simulator.KAD, Simulator.CHORD],
-        # "seed": [420],
-        # "nodes": [50, 100, 2500],
-        # "max-time": [10000, 100000, 250000],
-        # "rate": [1, 2, 5, 10],
-        # "nkeys": [10, 100, 2500],
-        # churn,
-    }
-
-    # runner = ParallelRunner(10)
-    runner = SimpleRunner()
-    campaign.run_missing_experiments(runner, configs)
-    results = campaign.get_results_for(configs)
+    runner = ParallelRunner(32)
+    # runner = SimpleRunner()
+    campaign.run_missing_experiments(runner, CONF)
+    results = campaign.get_results_for(CONF)
 
 
 if __name__ == "__main__":
