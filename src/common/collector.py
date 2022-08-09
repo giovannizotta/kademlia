@@ -1,7 +1,9 @@
 from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
+
+import pandas as pd
 
 
 @dataclass
@@ -22,7 +24,6 @@ class DataCollector:
     crashed_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
 
     def clear(self) -> None:
-        self.timed_out_requests = 0
         self.client_requests.clear()
         self.queue_load.clear()
         self.crashed_time.clear()
@@ -33,3 +34,12 @@ class DataCollector:
     @classmethod
     def from_dict(cls, dct) -> DataCollector:
         return DataCollector(**dct)
+
+    def to_pandas(self) -> Dict[str, Union[pd.DataFrame, pd.Series]]:
+        return {
+            "timed_out_requests": pd.Series(self.timed_out_requests, name="time"),
+            "client_requests": pd.DataFrame(self.client_requests, columns=["time", "latency", "hops"]),
+            "joined_time": pd.Series(self.joined_time, name="time"),
+            "crashed_time": pd.Series(self.crashed_time, name="time"),
+            "queue_load": pd.DataFrame(self.queue_load, columns=["time", "load"]),
+        }

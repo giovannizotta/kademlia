@@ -98,6 +98,10 @@ setup(
     extras_require={  # Optional
         # 'dev': ['check-manifest'],
         'test': ['pytest>=7.1.2'],
+        'plot': [
+            'pandas',
+            'streamlit',
+            ]
     },
     # If there are data files included in your packages that need to be
     # installed, specify them here.
