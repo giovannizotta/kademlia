@@ -201,9 +201,12 @@ class DHTNode(Node):
             self.get_value(packet)
 
     def collect_load(self):
-        self.datacollector.queue_load[self.name].append(
-            (self.env.now, len(self.in_queue.queue))
-        )
+        # if the last load recorded is the same as the one I would be recording, skip it
+        ql = self.datacollector.queue_load[self.name]
+        if ql and len(self.in_queue.queue) == ql[-1][1]:
+            return
+
+        ql.append((self.env.now, len(self.in_queue.queue)))
 
     def change_env(self, env: Environment) -> None:
         self.env = env
@@ -211,7 +214,7 @@ class DHTNode(Node):
 
     @abstractmethod
     def find_node(
-        self, key: int | str, ask_to: Optional[DHTNode] = None
+            self, key: int | str, ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[List[Process]]:
         """Iteratively find the closest node(s) to the given key
 
@@ -291,7 +294,7 @@ class DHTNode(Node):
         return requests
 
     def unzip_find(
-        self, key: int | str, function: Callable
+            self, key: int | str, function: Callable
     ) -> SimpyProcess[Tuple[List[DHTNode], int]]:
         processes = yield from self.find_node(key)
         ans = yield function(processes)

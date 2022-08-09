@@ -8,9 +8,10 @@ from typing import Dict, List, Tuple
 class DataCollector:
     """Collect the data from the simulation"""
 
-    timed_out_requests: int = 0
-    # tuple (latency, hops)
-    client_requests: List[Tuple[float, int]] = field(default_factory=list)
+    # list of times when there was a timeout
+    timed_out_requests: List[float] = field(default_factory=list)
+    # tuple (time, latency, hops)
+    client_requests: List[Tuple[float, float, int]] = field(default_factory=list)
     # dict from node id to tuple (time, load)
     queue_load: Dict[str, List[Tuple[float, int]]] = field(
         default_factory=lambda: defaultdict(list)

@@ -33,9 +33,9 @@ class Client(Node):
                 raise DHTTimeoutError()
             self.log(f"Received value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
-            self.datacollector.client_requests.append((after - before, hops))
+            self.datacollector.client_requests.append((self.env.now, after - before, hops))
         except DHTTimeoutError:
-            self.datacollector.timed_out_requests += 1
+            self.datacollector.timed_out_requests.append(self.env.now)
             self.log(f"Request for find key {key} timed out", level=logging.WARNING)
 
     def store_value(self, ask_to: DHTNode, key: str, value: int) -> SimpyProcess[None]:
@@ -54,9 +54,9 @@ class Client(Node):
                 raise DHTTimeoutError()
             self.log(f"Stored value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
-            self.datacollector.client_requests.append((after - before, hops))
+            self.datacollector.client_requests.append((self.env.now, after - before, hops))
         except DHTTimeoutError:
-            self.datacollector.timed_out_requests += 1
+            self.datacollector.timed_out_requests.append(self.env.now)
             self.log(
                 f"Request for  store key {key} : value {value} timed out",
                 level=logging.WARNING,
