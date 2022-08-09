@@ -21,6 +21,7 @@ from common.utils import (
     Request,
     SimpyProcess,
 )
+from simulation.constants import DEFAULT_PEER_TIMEOUT
 
 
 @dataclass
@@ -30,7 +31,7 @@ class Node(Loggable):
     datacollector: DataCollector = field(repr=False)
     location: Tuple[float, float] = field(repr=False)
     mean_service_time: float = field(repr=False, default=0.1)
-    max_timeout: float = field(repr=False, default=500.0)
+    max_timeout: float = field(repr=False, default=DEFAULT_PEER_TIMEOUT)
     log_world_size: int = field(repr=False, default=10)
     mean_transmission_delay: float = field(repr=False, default=0.5)
     in_queue: Resource = field(init=False, repr=False)
@@ -131,7 +132,7 @@ class Node(Loggable):
         self.env.process(self._send_msg(dest, msg))
 
     def wait_resps(
-        self, sent_reqs: Sequence[Request], packets: List[Packet]
+            self, sent_reqs: Sequence[Request], packets: List[Packet]
     ) -> SimpyProcess[None]:
         """Wait for the responses of the recipients
 

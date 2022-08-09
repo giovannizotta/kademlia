@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os.path
 from argparse import ArgumentParser, Namespace
 
 from simpy.core import Environment
-from tqdm import tqdm
 
 from chord.net_manager import ChordNetManager
 from common.collector import DataCollector
@@ -18,31 +16,6 @@ from simulation.constants import WORLD_SIZE, DEFAULT_MAX_TIME, DEFAULT_NODES, DE
     DEFAULT_JOINLAMBDA1, DEFAULT_JOINLAMBDA2, DEFAULT_JOINRATE, DEFAULT_CRASHMEAN, DEFAULT_CRASHVARIANCE, \
     DEFAULT_CRASHRATE
 from simulation.simulator import Simulator
-
-WORLD_SIZE = 160
-
-DEFAULT_MAX_TIME = 1000000
-DEFAULT_NODES = 100
-DEFAULT_SEED = 420
-DEFAULT_LOGGING = "INFO"
-DEFAULT_PLOT = False
-DEFAULT_CLIENT_RATE = 5
-DEFAULT_EXT = "pdf"
-DEFAULT_ALPHA = 3
-DEFAULT_K = 5
-DEFAULT_QUEUE_CAPACITY = 100
-DEFAULT_N_KEYS = 10 ** 3
-# parameters from BitTorrent Traffic Characteristics are
-# lambda1 = 42
-# lambda2 = 0.5
-DEFAULT_JOINLAMBDA1 = 10
-DEFAULT_JOINLAMBDA2 = 5
-DEFAULT_JOINRATE = 1
-# parameters from Table 3 of BitTorrent Traffic Characteristics are
-# mu = 8, sigma = 1.7
-DEFAULT_CRASHMEAN = 10
-DEFAULT_CRASHVARIANCE = 5
-DEFAULT_CRASHRATE = 1
 
 
 def parse_args() -> Namespace:
