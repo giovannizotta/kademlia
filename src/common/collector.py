@@ -9,11 +9,15 @@ class DataCollector:
     """Collect the data from the simulation"""
 
     timed_out_requests: int = 0
+    # tuple (latency, hops)
     client_requests: List[Tuple[float, int]] = field(default_factory=list)
+    # dict from node id to tuple (time, load)
     queue_load: Dict[str, List[Tuple[float, int]]] = field(
         default_factory=lambda: defaultdict(list)
     )
+    # dict from node id to time of join
     joined_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    # dict from node id to time of crash
     crashed_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
 
     def clear(self) -> None:
