@@ -22,7 +22,6 @@ from typing import (
 
 import numpy as np
 import scipy.stats
-import simpy
 import simpy.events
 from simpy.core import Environment
 from simpy.events import Event
@@ -142,7 +141,7 @@ class RandomBatchGenerator(metaclass=Singleton):
     _instance = None
 
     def __post_init__(self):
-        self.precision = 10**self.precision
+        self.precision = 10 ** self.precision
         self._rng = np.random.default_rng(self.seed)
 
     def get_uniform(self) -> float:

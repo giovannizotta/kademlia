@@ -19,12 +19,15 @@ class NetManager(Loggable):
     datacollector: DataCollector
     log_world_size: int
     capacity: int
-    crash_mu: float
-    crash_sigma: float
+    crash_mean: float
+    crash_variance: float
+    crash_rate: float
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
     failed_to_join: int = field(init=False, default=0)
     location_manager: LocationManager = field(init=False, repr=False)
+    crash_mu: float = field(init=False, repr=False)
+    crash_sigma: float = field(init=False, repr=False)
 
     NODE_SIZE: ClassVar[int] = 1200
 
@@ -39,6 +42,10 @@ class NetManager(Loggable):
         self.healthy_nodes: List[DHTNode] = list()
         for node in self.nodes:
             self.healthy_nodes.append(node)
+
+        self.crash_mean /= self.crash_rate
+        self.crash_mu = math.log(self.crash_mean / math.sqrt(self.crash_variance / (self.crash_mean ** 2) + 1))
+        self.crash_sigma = math.sqrt(math.log(self.crash_variance / (self.crash_mean ** 2) + 1))
 
     @abstractmethod
     def _hardwire_nodes(self, node0: DHTNode, node1: DHTNode) -> None:
@@ -83,9 +90,10 @@ class NetManager(Loggable):
         return self.rbg.choose(self.healthy_nodes)
 
     def get_crash_time(self) -> float:
-        if self.crash_mu == 0 and self.crash_sigma == 0:
+        if self.crash_rate == 0:
             return math.inf
-        return 1000 * self.rbg.get_lognormal(self.crash_mu, self.crash_sigma)
+
+        return 10 * 1000 * self.rbg.get_lognormal(self.crash_mu, self.crash_sigma)
 
     def schedule_node_crash(self, node: DHTNode) -> SimpyProcess[None]:
         t = self.get_crash_time()
