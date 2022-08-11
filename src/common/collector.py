@@ -41,5 +41,5 @@ class DataCollector:
             "client_requests": pd.DataFrame(self.client_requests, columns=["time", "latency", "hops"]),
             "joined_time": pd.Series(self.joined_time, name="time"),
             "crashed_time": pd.Series(self.crashed_time, name="time"),
-            "queue_load": pd.DataFrame(self.queue_load, columns=["time", "load"]),
+            "queue_load": pd.DataFrame(self.queue_load, columns=["node", "time", "load"]),
         }
