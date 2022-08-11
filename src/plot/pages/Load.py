@@ -3,12 +3,13 @@ import streamlit as st
 import altair as alt
 
 from plot.data import get_queue_load, get_crash_time, get_join_time
+from plot.healthy import get_healthy_chart
 from plot.options import option_select_slider
 from simulation.campaigns import CONF
 
 
 def main():
-    st.markdown("Client latency")
+    st.markdown("Queue load")
 
     clientrate = option_select_slider(CONF.get("rate"), "client arrival rate")
     joinrate = option_select_slider(CONF.get("joinrate"), "join rate")
@@ -16,8 +17,11 @@ def main():
     nkeys = option_select_slider(CONF.get("nkeys"), "number of keys")
 
     barplots = list()
+    healthy = list()
+
     for dht in CONF.get("dht"):
         conf = {
+            "seed": CONF.get("seed"),
             "rate": clientrate,
             "joinrate": joinrate,
             "crashrate": crashrate,
@@ -34,6 +38,7 @@ def main():
             drop=True)
         load_df = load_df[load_df["time_gap"].notna()]
 
+        print(load_df)
         weighted_average = lambda x: np.average(x, weights=load_df.loc[x.index, "time_gap"])
         load_df = load_df.groupby(["node"]).agg(
             avg_load=("load", weighted_average),
@@ -55,7 +60,12 @@ def main():
         )
         barplots.append(bars)
 
+        healthy.extend(get_healthy_chart(conf))
+
     layers = alt.layer(*barplots)
+    st.altair_chart(layers, use_container_width=True)
+
+    layers = alt.layer(*healthy)
     st.altair_chart(layers, use_container_width=True)
 
 

@@ -1,5 +1,6 @@
 import json
 
+import altair as alt
 import pandas as pd
 from runexpy.campaign import Campaign
 from runexpy.utils import IterParamsT
@@ -9,6 +10,7 @@ from common.collector import DataCollector
 import streamlit as st
 
 
+@st.experimental_memo
 def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
     result = list()
@@ -24,6 +26,7 @@ def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
     return pd.concat(result, ignore_index=True)
 
 
+@st.experimental_memo
 def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
     result = list()
@@ -38,6 +41,7 @@ def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
     return pd.DataFrame(result)
 
 
+@st.experimental_memo
 def get_join_time(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
     result = list()
@@ -52,6 +56,7 @@ def get_join_time(conf: IterParamsT) -> pd.DataFrame:
     return pd.DataFrame(result)
 
 
+@st.experimental_memo
 # @st.experimental_memo
 def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
@@ -67,6 +72,7 @@ def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
     return df
 
 
+@st.experimental_memo
 def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
     result = list()
@@ -81,17 +87,38 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     return df
 
 
-# @st.experimental_memo
-def get_data() -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(CONF):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        simulation_outputs = DataCollector.from_dict(dct).to_pandas()
-        entry = campaign_results.params
-        entry.update(simulation_outputs)
-        result.append(entry)
-        print("Rate: {}, client_requests: {}".format(entry["rate"], len(simulation_outputs["client_requests"])))
-    df = pd.DataFrame(result)
+def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str, nslots: int = 100) -> pd.DataFrame:
+    slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
+
+    df["slot"] = df[slot_column].apply(lambda x: x // slot_width).astype(int)
+
+    df = df.groupby(["slot", "seed"]).agg(
+        slot_metric=(metric, slot_agg),
+        ).reset_index()
+
+    df = df.groupby(["slot"]).agg(
+        mean=("slot_metric", "mean"),
+        sem=("slot_metric", "sem"),
+    ).reset_index().fillna(0)
+
+    df["ci95_hi"] = df["mean"] + 1.96 * df["sem"]
+    df["ci95_lo"] = df["mean"] - 1.96 * df["sem"]
+
     return df
+
+
+def get_line_ci_chart(df, label):
+    line = alt.Chart(df).mark_line().encode(
+        x=alt.X('slot', axis=alt.Axis(title="Time")),
+        y=alt.Y('mean', title=label),
+        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
+        tooltip=['mean', 'ci95_lo', 'ci95_hi'],
+    )
+    ci = alt.Chart(df).mark_area(opacity=0.2).encode(
+        x=alt.X('slot', axis=alt.Axis(title="Time")),
+        y='ci95_lo',
+        y2='ci95_hi',
+        color=alt.Color('dht'),
+        tooltip=['mean', 'ci95_hi', 'ci95_lo'],
+    )
+    return line, ci
