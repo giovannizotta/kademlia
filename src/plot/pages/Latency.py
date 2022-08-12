@@ -3,20 +3,21 @@ import pandas as pd
 import streamlit as st
 
 from plot.data import get_client_requests, get_client_timeout, get_slots_with_ci, get_line_ci_chart, \
-    get_ecdf_ci_horizontal
-from plot.healthy import get_healthy_chart
-from plot.options import option_select_slider
+    get_ecdf_ci_horizontal, get_join_time, get_crash_time
+from plot.healthy import get_healthy_chart, get_healthy_nodes
+from plot.options import select_slider, time_slider
 from simulation.campaigns import CONF
-from simulation.constants import DEFAULT_PEER_TIMEOUT, CLIENT_TIMEOUT_MULTIPLIER
+from simulation.constants import DEFAULT_PEER_TIMEOUT, CLIENT_TIMEOUT_MULTIPLIER, DEFAULT_MAX_TIME
 
 
 def main():
     st.title("Latency experienced by clients")
 
-    clientrate = option_select_slider(CONF.get("rate"), "client arrival rate")
-    joinrate = option_select_slider(CONF.get("joinrate"), "join rate")
-    crashrate = option_select_slider(CONF.get("crashrate"), "crash rate")
-    nkeys = option_select_slider(CONF.get("nkeys"), "number of keys")
+    start_time, end_time = time_slider(DEFAULT_MAX_TIME)
+    clientrate = select_slider(CONF.get("rate"), "client arrival rate")
+    joinrate = select_slider(CONF.get("joinrate"), "join rate")
+    crashrate = select_slider(CONF.get("crashrate"), "crash rate")
+    nkeys = select_slider(CONF.get("nkeys"), "number of keys")
 
     st.markdown(f"Client arrival rate: {clientrate}")
 
@@ -31,8 +32,15 @@ def main():
             "nkeys": nkeys,
             "dht": dht,
         }
-        cdfs.append(get_latency_ecdf(conf))
-        healthy.append(get_healthy_chart(conf))
+        dht = conf.get("dht")
+        client_df = get_client_requests(conf)
+        timeout_df = get_client_timeout(conf)
+
+        client_df = client_df[(client_df["time"] >= start_time) & (client_df["time"] <= end_time)]
+        timeout_df = timeout_df[(timeout_df["time"] >= start_time) & (timeout_df["time"] <= end_time)]
+
+        cdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
+        healthy.append(get_healthy_chart(conf, start_time, end_time, dht))
 
     layers = alt.layer(*cdfs)
     st.altair_chart(layers, use_container_width=True)
@@ -42,24 +50,20 @@ def main():
     st.altair_chart(layers, use_container_width=True)
 
 
-def get_latency_ecdf(conf):
-    dht = conf.get("dht")
-    df = get_client_requests(conf)
-    to = get_client_timeout(conf)
+def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
+    timeout_df["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
+    timeout_df["hops"] = -1
+    client_df = pd.concat([client_df, timeout_df], ignore_index=True)
 
-    to["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
-    to["hops"] = -1
-    df = pd.concat([df, to], ignore_index=True)
+    client_df = client_df.sort_values(by="latency", ignore_index=True)
+    client_df["count"] = client_df.groupby("seed").cumcount()
 
-    df = df.sort_values(by="latency", ignore_index=True)
-    df["count"] = df.groupby("seed").cumcount()
+    client_df = get_slots_with_ci(client_df, "count", "latency", "mean", nslots=20)
+    client_df["dht"] = dht
+    max = client_df["slot"].max()
+    client_df["slot"] /= max
 
-    df = get_slots_with_ci(df, "count", "latency", "mean", nslots=20)
-    df["dht"] = dht
-    max = df["slot"].max()
-    df["slot"] /= max
-
-    line, ci = get_ecdf_ci_horizontal(df, "Latency", "CDF")
+    line, ci = get_ecdf_ci_horizontal(client_df, "Latency", "CDF")
 
     return line + ci
 

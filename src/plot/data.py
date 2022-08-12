@@ -87,7 +87,6 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
 def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> pd.DataFrame:
     slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
-
     df["slot"] = df[slot_column].apply(lambda x: x // slot_width).astype(int)
 
     df = df.groupby(["seed", "slot"]).agg(
