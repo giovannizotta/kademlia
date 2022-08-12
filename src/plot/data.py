@@ -2,12 +2,9 @@ import json
 
 import altair as alt
 import pandas as pd
+import streamlit as st
 from runexpy.campaign import Campaign
 from runexpy.utils import IterParamsT
-
-from common.collector import DataCollector
-
-import streamlit as st
 
 
 @st.experimental_memo
@@ -87,14 +84,18 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     return df
 
 
-def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str, nslots: int = 100) -> pd.DataFrame:
+def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
+                      nslots: int = 100) -> pd.DataFrame:
     slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
 
     df["slot"] = df[slot_column].apply(lambda x: x // slot_width).astype(int)
 
-    df = df.groupby(["slot", "seed"]).agg(
+    df = df.groupby(["seed", "slot"]).agg(
         slot_metric=(metric, slot_agg),
-        ).reset_index()
+    ).unstack().stack(dropna=False).reset_index()
+    df["slot_metric"] = df.groupby("seed")["slot_metric"].ffill().fillna(0)
+    assert (df.groupby(["slot"])["seed"].count() == 3).all()
+    assert (df["slot_metric"].notna().all())
 
     df = df.groupby(["slot"]).agg(
         mean=("slot_metric", "mean"),
@@ -107,15 +108,15 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
     return df
 
 
-def get_line_ci_chart(df, label):
+def get_line_ci_chart(df, xlabel, ylabel):
     line = alt.Chart(df).mark_line().encode(
-        x=alt.X('slot', axis=alt.Axis(title="Time")),
-        y=alt.Y('mean', title=label),
+        x=alt.X('slot', axis=alt.Axis(title=xlabel)),
+        y=alt.Y('mean', title=ylabel),
         color=alt.Color('dht', legend=alt.Legend(title="DHT")),
         tooltip=['mean', 'ci95_lo', 'ci95_hi'],
     )
     ci = alt.Chart(df).mark_area(opacity=0.2).encode(
-        x=alt.X('slot', axis=alt.Axis(title="Time")),
+        x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y='ci95_lo',
         y2='ci95_hi',
         color=alt.Color('dht'),

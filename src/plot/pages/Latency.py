@@ -55,8 +55,12 @@ def get_latency_cdf(conf):
 
     df = get_slots_with_ci(df, "latency", "count", "max")
     df["dht"] = dht
+    max = df["mean"].max()
+    df["mean"] /= max
+    df["ci95_lo"] /= max
+    df["ci95_hi"] /= max
 
-    line, ci = get_line_ci_chart(df, "Latency")
+    line, ci = get_line_ci_chart(df, "Latency", "CDF")
 
     return line + ci
 

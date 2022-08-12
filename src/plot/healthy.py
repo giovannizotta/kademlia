@@ -21,5 +21,5 @@ def get_healthy_chart(conf: IterParamsT) -> alt.Chart:
     df["dht"] = conf["dht"]
 
     print(df)
-    line, ci = get_line_ci_chart(df, "Healthy nodes")
+    line, ci = get_line_ci_chart(df, "Time", "Healthy nodes")
     return line + ci
