@@ -9,12 +9,11 @@ from simulation.simulator import Simulator
 
 CONF: IterParamsT = {
     "dht": [Simulator.KAD, Simulator.CHORD],
-    "rate": [0.5, 2, 10],
-    "seed": list(range(420, 430)),
-    "crashrate": [0.5, 2, 10],
-    "joinrate": [0.5, 2, 10],
-    # "seed": [420],
-    # "nkeys": [10, 100, 2500],
+    "rate": [0.1, 0.2, 0.5, 1],
+    "seed": list(range(420, 450)),
+    "nkeys": [100, 2500],
+    "crashrate": [1, 2, 5, 10],
+    "joinrate": [1, 2, 5, 10],
 }
 
 
@@ -40,10 +39,9 @@ def main():
 
     campaign = Campaign.new(script, campaign_dir, default_params, overwrite=True)
 
-    runner = ParallelRunner(32)
+    runner = ParallelRunner(48)
     # runner = SimpleRunner()
     campaign.run_missing_experiments(runner, CONF)
-    results = campaign.get_results_for(CONF)
 
 
 if __name__ == "__main__":
