@@ -94,13 +94,13 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
         slot_metric=(metric, slot_agg),
     ).unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")["slot_metric"].ffill().fillna(0)
-    assert (df.groupby(["slot"])["seed"].count() == 3).all()
-    assert (df["slot_metric"].notna().all())
 
     df = df.groupby(["slot"]).agg(
         mean=("slot_metric", "mean"),
         sem=("slot_metric", "sem"),
     ).reset_index().fillna(0)
+
+    df["slot"] *= slot_width
 
     df["ci95_hi"] = df["mean"] + 1.96 * df["sem"]
     df["ci95_lo"] = df["mean"] - 1.96 * df["sem"]
@@ -123,3 +123,20 @@ def get_line_ci_chart(df, xlabel, ylabel):
         tooltip=['mean', 'ci95_hi', 'ci95_lo'],
     )
     return line, ci
+
+
+def get_ecdf_ci_horizontal(df, xlabel, ylabel):
+    points = alt.Chart(df).mark_point(filled=True, size=30).encode(
+        x=alt.X('mean', axis=alt.Axis(title=xlabel)),
+        y=alt.Y('slot', title=ylabel),
+        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
+        tooltip=['mean', 'ci95_lo', 'ci95_hi'],
+    )
+    ci = alt.Chart(df).mark_errorbar(ticks=True, size=5).encode(
+        x=alt.X('ci95_lo', axis=alt.Axis(title="")),
+        x2='ci95_hi',
+        y='slot',
+        color=alt.Color('dht'),
+        tooltip=['mean', 'ci95_hi', 'ci95_lo'],
+    )
+    return points, ci
