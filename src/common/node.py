@@ -50,8 +50,6 @@ class Node(Loggable):
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
-        if self.crashed:
-            return
         msg = packet.message
         if msg.ptype.is_reply():
             assert msg.event is not None
@@ -62,6 +60,9 @@ class Node(Loggable):
         pass
 
     def recv_packet(self, packet: Packet) -> SimpyProcess[None]:
+        if self.crashed:
+            self.datacollector.messages_after_crash[self.name].append(self.env.now)
+            return
         # Manage network buffer and call manage_packet
         self.log(f"{self.name} received {packet}")
         if len(self.in_queue.queue) == self.queue_capacity:

@@ -22,6 +22,8 @@ class DataCollector:
     joined_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
     # dict from node id to time of crash
     crashed_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    # dict from node id to list timestamps of messages received after crash
+    messages_after_crash: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
 
     def clear(self) -> None:
         self.client_requests.clear()
