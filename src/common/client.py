@@ -34,7 +34,7 @@ class Client(Node):
                 raise DHTTimeoutError()
             self.log(f"Received value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
-            self.datacollector.client_requests.append((int(self.env.now), after - before, hops))
+            self.datacollector.client_requests.append((int(self.env.now), int(after - before), hops))
         except DHTTimeoutError:
             self.datacollector.timed_out_requests.append(int(self.env.now))
             self.log(f"Request for find key {key} timed out", level=logging.WARNING)
@@ -55,7 +55,7 @@ class Client(Node):
                 raise DHTTimeoutError()
             self.log(f"Stored value: DHT[{key}] = {value}", level=logging.INFO)
             after = self.env.now
-            self.datacollector.client_requests.append((int(self.env.now), after - before, hops))
+            self.datacollector.client_requests.append((int(self.env.now), int(after - before), hops))
         except DHTTimeoutError:
             self.datacollector.timed_out_requests.append(int(self.env.now))
             self.log(

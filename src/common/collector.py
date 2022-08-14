@@ -13,7 +13,7 @@ class DataCollector:
     # list of times when there was a timeout
     timed_out_requests: List[int] = field(default_factory=list)
     # tuple (time, latency, hops)
-    client_requests: List[Tuple[int, float, int]] = field(default_factory=list)
+    client_requests: List[Tuple[int, int, int]] = field(default_factory=list)
     # dict from node id to tuple (time, load)
     queue_load: Dict[str, List[Tuple[int, int]]] = field(
         default_factory=lambda: defaultdict(list)
