@@ -11,19 +11,19 @@ class DataCollector:
     """Collect the data from the simulation"""
 
     # list of times when there was a timeout
-    timed_out_requests: List[float] = field(default_factory=list)
+    timed_out_requests: List[int] = field(default_factory=list)
     # tuple (time, latency, hops)
-    client_requests: List[Tuple[float, float, int]] = field(default_factory=list)
+    client_requests: List[Tuple[int, float, int]] = field(default_factory=list)
     # dict from node id to tuple (time, load)
-    queue_load: Dict[str, List[Tuple[float, int]]] = field(
+    queue_load: Dict[str, List[Tuple[int, int]]] = field(
         default_factory=lambda: defaultdict(list)
     )
     # dict from node id to time of join
-    joined_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    joined_time: Dict[str, int] = field(default_factory=lambda: defaultdict(float))
     # dict from node id to time of crash
-    crashed_time: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    crashed_time: Dict[str, int] = field(default_factory=lambda: defaultdict(float))
     # dict from node id to list timestamps of messages received after crash
-    messages_after_crash: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
+    messages_after_crash: Dict[str, List[int]] = field(default_factory=lambda: defaultdict(list))
 
     def clear(self) -> None:
         self.client_requests.clear()
