@@ -42,9 +42,10 @@ class NetManager(Loggable):
         for node in self.nodes:
             self.healthy_nodes.append(node)
 
-        self.crash_mean /= self.crash_rate
-        self.crash_mu = math.log(self.crash_mean / math.sqrt(self.crash_variance / (self.crash_mean ** 2) + 1))
-        self.crash_sigma = math.sqrt(math.log(self.crash_variance / (self.crash_mean ** 2) + 1))
+        if self.crash_rate > 0:
+            self.crash_mean /= self.crash_rate
+            self.crash_mu = math.log(self.crash_mean / math.sqrt(self.crash_variance / (self.crash_mean ** 2) + 1))
+            self.crash_sigma = math.sqrt(math.log(self.crash_variance / (self.crash_mean ** 2) + 1))
 
     @abstractmethod
     def _hardwire_nodes(self, node0: DHTNode, node1: DHTNode) -> None:

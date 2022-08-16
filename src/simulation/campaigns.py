@@ -12,8 +12,8 @@ CONF: IterParamsT = {
     "rate": [0.1, 0.2, 0.5, 1],
     "seed": list(range(420, 450)),
     "nkeys": [100, 2500],
-    "crashrate": [1, 5, 10],
-    "joinrate": [1, 5, 10],
+    "crashrate": [0, 1, 10],
+    "joinrate": [0, 1, 10],
 }
 
 
