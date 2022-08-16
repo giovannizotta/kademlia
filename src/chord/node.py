@@ -317,40 +317,44 @@ class ChordNode(DHTNode):
 
     def join_network_on_index(self, to: ChordNode, index: int) -> SimpyProcess[bool]:
         self.log(f"trying to join the network from {to} on index {index}")
-        node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
-        assert node is not None
-        # ask to the node responsible for the key on index
-        # ask node its successor
-        sent_req = self.ask(
-            [node],
-            dict(index=index),
-            MessageType.GET_SUCC,
-        ).pop()
-        # wait for a response
-        reply = yield from self.wait_resp(sent_req)
-        # serve response
-        node_succ = reply.message.data["succ"]
-        if node_succ is None:
-            return False
-        assert node_succ is not None
+        try:
+            node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
+            assert node is not None
+            # ask to the node responsible for the key on index
+            # ask node its successor
+            sent_req = self.ask(
+                [node],
+                dict(index=index),
+                MessageType.GET_SUCC,
+            ).pop()
+            # wait for a response
+            reply = yield from self.wait_resp(sent_req)
+            # serve response
+            node_succ = reply.message.data["succ"]
+            if node_succ is None:
+                return False
+            assert node_succ is not None
 
-        # ask them to put me in the ring
-        sent_req_pred = self.ask(
-            [node],
-            dict(succ=self, index=index),
-            MessageType.SET_SUCC,
-        ).pop()
-        sent_req_succ = self.ask(
-            [node_succ],
-            dict(pred=self, index=index),
-            MessageType.SET_PRED,
-        ).pop()
-        # wait for both answers
-        yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
-        # I do my rewiring
-        self.pred = (index, node)
-        self.succ[index] = node_succ
-        return True
+            # ask them to put me in the ring
+            sent_req_pred = self.ask(
+                [node],
+                dict(succ=self, index=index),
+                MessageType.SET_SUCC,
+            ).pop()
+            sent_req_succ = self.ask(
+                [node_succ],
+                dict(pred=self, index=index),
+                MessageType.SET_PRED,
+            ).pop()
+            # wait for both answers
+            yield from self.wait_resps((sent_req_pred, sent_req_succ), [])
+            # I do my rewiring
+            self.pred = (index, node)
+            self.succ[index] = node_succ
+            return True
+        except DHTTimeoutError:
+            self.log(f"Timeout on join on index {index}", level=logging.WARNING)
+            return False
 
     def join_network(self, to: ChordNode) -> SimpyProcess[bool]:
         processes = []

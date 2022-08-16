@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 from typing import List, Sequence
+from dataclasses import dataclass, field
 
 import matplotlib.pyplot as plt
 import networkx as nx
