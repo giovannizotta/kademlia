@@ -46,7 +46,7 @@ class Node(Loggable):
 
     def crash(self) -> None:
         self.crashed = True
-        self.datacollector.crashed_time[self.name] = int(self.env.now)
+        self.datacollector.crashed_time[self.name] = self.env.now
 
     @abstractmethod
     def manage_packet(self, packet: Packet) -> None:
@@ -61,7 +61,7 @@ class Node(Loggable):
 
     def recv_packet(self, packet: Packet) -> SimpyProcess[None]:
         if self.crashed:
-            self.datacollector.messages_after_crash[self.name].append(int(self.env.now))
+            self.datacollector.messages_after_crash[self.name].append(self.env.now)
             return
         # Manage network buffer and call manage_packet
         self.log(f"{self.name} received {packet}")
@@ -208,7 +208,7 @@ class DHTNode(Node):
         if ql and len(self.in_queue.queue) == ql[-1][1]:
             return
 
-        ql.append((int(self.env.now), len(self.in_queue.queue)))
+        ql.append((self.env.now, len(self.in_queue.queue)))
 
     def change_env(self, env: Environment) -> None:
         self.env = env
