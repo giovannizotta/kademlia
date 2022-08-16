@@ -25,6 +25,8 @@ class DataCollector:
     # dict from node id to list timestamps of messages received after crash
     messages_after_crash: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
 
+    failed_to_join: List[float] = field(default_factory=list)
+
     DECIMALS: ClassVar[int] = 2
 
     def clear(self) -> None:

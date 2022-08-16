@@ -151,7 +151,7 @@ def main() -> None:
     print(
         f"Total nodes: {len(net_manager.nodes)}, "
         f"Healthy nodes: {len(net_manager.healthy_nodes)}, "
-        f"Failed to join: {net_manager.failed_to_join}"
+        f"Failed to join: {len(datacollector.failed_to_join)}"
     )
 
     # dump collected data

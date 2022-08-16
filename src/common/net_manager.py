@@ -24,7 +24,6 @@ class NetManager(Loggable):
     crash_rate: float
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
-    failed_to_join: int = field(init=False, default=0)
     location_manager: LocationManager = field(init=False, repr=False)
     crash_mu: float = field(init=False, repr=False)
     crash_sigma: float = field(init=False, repr=False)
@@ -116,7 +115,7 @@ class NetManager(Loggable):
             self.healthy_nodes.append(node)
             self.env.process(self.schedule_node_crash(node))
         else:
-            self.failed_to_join += 1
+            self.datacollector.failed_to_join.append(self.env.now)
 
     def join_next(self) -> None:
         node = self.get_new_node()
