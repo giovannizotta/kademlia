@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, cast
+from typing import cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -11,16 +11,30 @@ from common.utils import SimpyProcess
 
 @dataclass
 class ChordNetManager(NetManager):
-    k: int = field(repr=False, default=5)
+    k: int = field(repr=False)
+    stabilize_period: float = field(repr=False)
+    stabilize_stddev: float = field(repr=False)
+    stabilize_mincap: float = field(repr=False)
+    update_finger_period: float = field(repr=False)
+    update_finger_stddev: float = field(repr=False)
+    update_finger_mincap: float = field(repr=False)
 
     def get_new_node(self) -> ChordNode:
         return ChordNode(
             self.env,
             self.datacollector,
-            location=self.location_manager.get(),
-            log_world_size=self.log_world_size,
-            queue_capacity=self.capacity,
-            k=self.k,
+            self.location_manager.get(),
+            self.max_timeout,
+            self.log_world_size,
+            self.queue_capacity,
+            self.mean_service_time,
+            self.k,
+            self.stabilize_period,
+            self.stabilize_stddev,
+            self.stabilize_mincap,
+            self.update_finger_period,
+            self.update_finger_stddev,
+            self.update_finger_mincap,
         )
 
     def _hardwire_nodes(self, node0: ChordNode, node1: ChordNode) -> None:

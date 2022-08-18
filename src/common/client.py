@@ -3,13 +3,12 @@ import logging
 from common.node import DHTNode, Node
 from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, SimpyProcess
-from simulation.constants import CLIENT_TIMEOUT_MULTIPLIER
 
 
 class Client(Node):
+
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.max_timeout = self.max_timeout * CLIENT_TIMEOUT_MULTIPLIER
 
     def collect_load(self):
         pass

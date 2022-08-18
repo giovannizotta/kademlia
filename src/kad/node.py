@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from math import log2
-from typing import Iterator, List, Sequence, Set
+from typing import Iterator, List, Sequence, Set, Union
 
 from simpy.events import Process
 
@@ -16,8 +16,8 @@ from common.utils import DHTTimeoutError, Request, SimpyProcess
 @dataclass
 class KadNode(DHTNode):
     buckets: List[List[KadNode]] = field(init=False, repr=False)
-    alpha: int = field(repr=False, default=3)
-    k: int = field(repr=False, default=5)
+    alpha: int = field(repr=False)
+    k: int = field(repr=False)
 
     def __hash__(self):
         return self.id
@@ -49,11 +49,11 @@ class KadNode(DHTNode):
         self.send_resp(packet.sender, reply)
 
     def update_candidates(
-        self,
-        packets: Sequence[Packet],
-        key: int,
-        current: List[KadNode],
-        contacted: Set[KadNode],
+            self,
+            packets: Sequence[Packet],
+            key: int,
+            current: List[KadNode],
+            contacted: Set[KadNode],
     ) -> bool:
         current_set = set(current)
         for packet in packets:
@@ -94,7 +94,7 @@ class KadNode(DHTNode):
                     bucket[i] = bucket[i + 1]
                 bucket[-1] = node
 
-    def find_node(self, key: int | str) -> SimpyProcess[List[Process]]:
+    def find_node(self, key: Union[int, str]) -> SimpyProcess[List[Process]]:
         key_hash = self._compute_key(key) if isinstance(key, str) else key
         self.log(f"Looking for key {key}")
         contacted = set()
@@ -120,7 +120,6 @@ class KadNode(DHTNode):
         processes = []
         self.log(f"finished find_node, nodes: {current}")
         for node in current:
-
             def p(n, h):
                 yield self.env.timeout(0)
                 return n, h
@@ -138,7 +137,7 @@ class KadNode(DHTNode):
         return sorted(nodes, key=lambda x: x._compute_distance(key))[: self.k]
 
     def ask_neighbors(
-        self, current: List[KadNode], contacted: Set[KadNode], key: int
+            self, current: List[KadNode], contacted: Set[KadNode], key: int
     ) -> List[Request]:
         # find nodes to contact
         to_contact = list()
@@ -175,7 +174,7 @@ def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
     i = node.get_bucket_for(key)
     cb_iter = iter(node.buckets[i])
     lb_iter = iter(reversed(node.buckets[:i]))
-    rb_iter = iter(node.buckets[i + 1 :])
+    rb_iter = iter(node.buckets[i + 1:])
     left = True
 
     while True:

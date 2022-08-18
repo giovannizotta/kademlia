@@ -1,5 +1,5 @@
-from typing import List, Sequence
 from dataclasses import dataclass, field
+from typing import List
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -74,8 +74,8 @@ class Trie(nx.DiGraph):
 
 @dataclass
 class KadNetManager(NetManager):
-    alpha: int = field(repr=False, default=3)
-    k: int = field(repr=False, default=5)
+    alpha: int = field(repr=False)
+    k: int = field(repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -90,11 +90,13 @@ class KadNetManager(NetManager):
         return KadNode(
             self.env,
             self.datacollector,
-            location=self.location_manager.get(),
-            log_world_size=self.log_world_size,
-            queue_capacity=self.capacity,
-            alpha=self.alpha,
-            k=self.k,
+            self.location_manager.get(),
+            self.max_timeout,
+            self.log_world_size,
+            self.queue_capacity,
+            self.mean_service_time,
+            self.alpha,
+            self.k,
         )
 
     def _hardwire_nodes(self, node0: KadNode, node1: KadNode) -> None:

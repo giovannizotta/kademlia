@@ -18,10 +18,13 @@ class NetManager(Loggable):
     n_nodes: int
     datacollector: DataCollector
     log_world_size: int
-    capacity: int
+    queue_capacity: int
     crash_mean: float
     crash_variance: float
     crash_rate: float
+    mean_service_time: float
+    max_timeout: float
+
     nodes: List[DHTNode] = field(init=False)
     healthy_nodes: List[DHTNode] = field(init=False)
     location_manager: LocationManager = field(init=False, repr=False)
@@ -44,6 +47,8 @@ class NetManager(Loggable):
 
         if self.crash_rate > 0:
             self.crash_mean /= self.crash_rate
+            # compute lognormal parameters according to
+            # https://en.wikipedia.org/wiki/Log-normal_distribution
             self.crash_mu = math.log(self.crash_mean / math.sqrt(self.crash_variance / (self.crash_mean ** 2) + 1))
             self.crash_sigma = math.sqrt(math.log(self.crash_variance / (self.crash_mean ** 2) + 1))
 

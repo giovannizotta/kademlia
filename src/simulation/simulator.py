@@ -15,18 +15,22 @@ from common.utils import LocationManager, Loggable, SimpyProcess
 class Simulator(Loggable):
     net_manager: NetManager
     keys: Sequence[str]
+    max_value: int
+
     plot: bool
-    max_value: int = 10 ** 9
-    mean_arrival: float = 0.1
-    mean_crash: float = 50
-    mean_join: float = 50
-    ext: str = "pdf"
-    capacity: int = 100
-    # parameters from measurement 7 of BitTorrent Traffic Characteristics
-    join_lambda1: float = 42
-    join_lambda2: float = 0.5
-    join_rate: float = 0.1
-    join_p: float = 0.3
+    ext: str
+
+    # client parameters
+    client_arrival_rate: float
+    client_max_timeout: float
+    client_mean_service_time: float
+
+    # join distribution parameters
+    join_lambda1: float
+    join_lambda2: float
+    join_rate: float
+    join_p: float
+
     location_manager: LocationManager = field(init=False, repr=False)
 
     FIND: ClassVar[str] = "FIND"
@@ -45,7 +49,7 @@ class Simulator(Loggable):
         self.join_lambda2 *= self.join_rate
 
     def get_arrival_time(self) -> float:
-        return self.rbg.get_exponential(self.mean_arrival)
+        return self.rbg.get_exponential(self.client_arrival_rate)
 
     def get_join_time(self) -> float:
         if self.join_rate == 0:
@@ -117,7 +121,10 @@ class Simulator(Loggable):
                 self.env,
                 self.net_manager.datacollector,
                 self.location_manager.get(),
-                log_world_size=self.net_manager.nodes[0].log_world_size,
+                self.client_max_timeout,
+                self.net_manager.nodes[0].log_world_size,
+                1,
+                self.client_mean_service_time,
             )
             proc = self.get_client_behaviour(client)
             self.env.process(proc)

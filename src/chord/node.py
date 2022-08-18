@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from math import log2
-from typing import Iterable, List, Optional, SupportsIndex, Tuple
+from typing import Iterable, List, Optional, SupportsIndex, Tuple, Union
 
 from simpy.core import Environment
 from simpy.events import Process
@@ -15,7 +15,7 @@ from common.utils import DHTTimeoutError, Request, SimpyProcess
 
 class _SuccView(List[Optional["ChordNode"]]):
     def __init__(
-        self, node: ChordNode, iterable: Iterable[Optional["ChordNode"]]
+            self, node: ChordNode, iterable: Iterable[Optional["ChordNode"]]
     ) -> None:
         super().__init__(iterable)
         self.node = node
@@ -28,18 +28,19 @@ class _SuccView(List[Optional["ChordNode"]]):
 
 @dataclass
 class ChordNode(DHTNode):
-    k: int = field(repr=False, default=1)
+    k: int = field(repr=False)
+
     _pred: List[Optional[ChordNode]] = field(init=False, repr=False)
     _succ: _SuccView = field(init=False, repr=False)
     ft: List[List[ChordNode]] = field(init=False, repr=False)
     ids: List[int] = field(init=False, repr=False)
 
-    STABILIZE_PERIOD: float = field(default=500, repr=False)
-    STABILIZE_STDDEV: float = field(default=10, repr=False)
-    STABILIZE_MINCAP: float = field(default=30, repr=False)
-    UPDATE_FINGER_PERIOD: float = field(default=5000, repr=False)
-    UPDATE_FINGER_STDDEV: float = field(default=1000, repr=False)
-    UPDATE_FINGER_MINCAP: float = field(default=2000, repr=False)
+    stabilize_period: float = field(repr=False)
+    stabilize_stddev: float = field(repr=False)
+    stabilize_mincap: float = field(repr=False)
+    update_finger_period: float = field(repr=False)
+    update_finger_stddev: float = field(repr=False)
+    update_finger_mincap: float = field(repr=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -69,8 +70,8 @@ class ChordNode(DHTNode):
         self.env.process(self.fix_fingers())
 
     def get_node(
-        self,
-        packet: Packet,
+            self,
+            packet: Packet,
     ) -> None:
         msg = packet.message
         key = msg.data["key"]
@@ -119,7 +120,7 @@ class ChordNode(DHTNode):
         return best_node, found
 
     def _forward(
-        self, key: int, index: int, found: bool, best_node: ChordNode
+            self, key: int, index: int, found: bool, best_node: ChordNode
     ) -> Tuple[ChordNode, bool, Optional[Request]]:
         if not found:
             self.log(
@@ -137,7 +138,7 @@ class ChordNode(DHTNode):
         return best_node, found, sent_req
 
     def _get_best_node_and_forward(
-        self, key: int, index: int, ask_to: Optional[ChordNode]
+            self, key: int, index: int, ask_to: Optional[ChordNode]
     ) -> Tuple[ChordNode, bool, Optional[Request]]:
         self.log(f"looking for node with key {key} on index {index}")
         if ask_to is not None:
@@ -149,7 +150,7 @@ class ChordNode(DHTNode):
         return self._forward(key, index, found, best_node)
 
     def _check_best_node_and_forward(
-        self, packet: Packet, best_node: ChordNode
+            self, packet: Packet, best_node: ChordNode
     ) -> Tuple[ChordNode, bool, Optional[Request]]:
         msg = packet.message
         tmp = msg.data["best_node"]
@@ -158,7 +159,7 @@ class ChordNode(DHTNode):
         return self._forward(msg.data["key"], msg.data["index"], found, best_node)
 
     def find_node_on_index(
-        self, key: int | str, index: int, ask_to: Optional[ChordNode] = None
+            self, key: Union[int, str], index: int, ask_to: Optional[ChordNode] = None
     ) -> SimpyProcess[Tuple[Optional[ChordNode], int]]:
         # use different hash functions for each index by hashing key+index
         key_hash = self._compute_key(key + str(index)) if isinstance(key, str) else key
@@ -185,7 +186,7 @@ class ChordNode(DHTNode):
         return best_node, hops
 
     def find_node(
-        self, key: int | str, ask_to: Optional[ChordNode] = None
+            self, key: Union[int, str], ask_to: Optional[ChordNode] = None
     ) -> SimpyProcess[List[Process]]:
 
         self.log(f"start looking for nodes holding {key}")
@@ -216,8 +217,8 @@ class ChordNode(DHTNode):
         self.send_resp(packet.sender, reply)
 
     def get_predecessor(
-        self,
-        packet: Packet,
+            self,
+            packet: Packet,
     ) -> None:
         msg = packet.message
         self.log(f"asked what is my predecessor for index {msg.data['index']}")
@@ -230,8 +231,8 @@ class ChordNode(DHTNode):
         self.send_resp(packet.sender, reply)
 
     def set_predecessor(
-        self,
-        packet: Packet,
+            self,
+            packet: Packet,
     ) -> None:
         msg = packet.message
         self.pred = (msg.data["index"], msg.data["pred"])
@@ -267,9 +268,9 @@ class ChordNode(DHTNode):
         while True:
             yield self.env.timeout(
                 self.rbg.get_normal(
-                    self.STABILIZE_PERIOD,
-                    self.STABILIZE_STDDEV,
-                    self.STABILIZE_MINCAP,
+                    self.stabilize_period,
+                    self.stabilize_stddev,
+                    self.stabilize_mincap,
                 )
             )
             self.log("stabilizing")
@@ -295,7 +296,7 @@ class ChordNode(DHTNode):
             self.log(f"Timeout on stabilize on index {index}", level=logging.WARNING)
 
     def fix_finger_on_index(self, finger_index: int, index: int) -> SimpyProcess[None]:
-        key = (self.ids[index] + 2**finger_index) % (2**self.log_world_size)
+        key = (self.ids[index] + 2 ** finger_index) % (2 ** self.log_world_size)
         self.log(f"Updating finger {finger_index} on index {index}")
         node, _ = yield from self.find_node_on_index(key, index)
         if node is not None:
@@ -305,9 +306,9 @@ class ChordNode(DHTNode):
         while True:
             yield self.env.timeout(
                 self.rbg.get_normal(
-                    self.UPDATE_FINGER_PERIOD,
-                    self.UPDATE_FINGER_STDDEV,
-                    self.UPDATE_FINGER_MINCAP,
+                    self.update_finger_period,
+                    self.update_finger_stddev,
+                    self.update_finger_mincap,
                 )
             )
             self.log("fixing fingers")
@@ -366,7 +367,7 @@ class ChordNode(DHTNode):
 
     def _compute_distance(self, from_key: int, index: int) -> int:
         dst = from_key - self.ids[index]
-        return int(dst % (2**self.log_world_size))
+        return int(dst % (2 ** self.log_world_size))
 
     def _update_ft(self, pos: int, index: int, node: ChordNode) -> None:
         self.ft[index][pos] = node
@@ -374,7 +375,7 @@ class ChordNode(DHTNode):
     def update(self) -> SimpyProcess[None]:
         for index, id_ in enumerate(self.ids):
             for x in range(self.log_world_size):
-                key = (id_ + 2**x) % (2**self.log_world_size)
+                key = (id_ + 2 ** x) % (2 ** self.log_world_size)
                 node, _ = yield from self.find_node_on_index(key, index)
                 if node is not None:
                     self._update_ft(x, index, node)

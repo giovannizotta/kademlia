@@ -11,10 +11,12 @@ from common.collector import DataCollector
 from common.net_manager import NetManager
 from common.utils import RandomBatchGenerator as RBG
 from kad.net_manager import KadNetManager
-from simulation.constants import WORLD_SIZE, DEFAULT_MAX_TIME, DEFAULT_NODES, DEFAULT_SEED, DEFAULT_LOGGING, \
+from simulation.constants import DEFAULT_LOG_WORLD_SIZE, DEFAULT_MAX_TIME, DEFAULT_NODES, DEFAULT_SEED, DEFAULT_LOGGING, \
     DEFAULT_PLOT, DEFAULT_CLIENT_RATE, DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS, \
     DEFAULT_JOINLAMBDA1, DEFAULT_JOINLAMBDA2, DEFAULT_JOINRATE, DEFAULT_CRASHMEAN, DEFAULT_CRASHVARIANCE, \
-    DEFAULT_CRASHRATE
+    DEFAULT_CRASHRATE, DEFAULT_JOIN_P, DEFAULT_MAX_VALUE, DEFAULT_MEAN_SERVICE_TIME, DEFAULT_PEER_TIMEOUT, \
+    DEFAULT_STABILIZE_PERIOD_MEAN, DEFAULT_STABILIZE_PERIOD_STDDEV, DEFAULT_STABILIZE_PERIOD_MIN, \
+    DEFAULT_UPDATE_PERIOD_MEAN, DEFAULT_UPDATE_PERIOD_STDDEV, DEFAULT_UPDATE_PERIOD_MIN, DEFAULT_CLIENT_TIMEOUT
 from simulation.simulator import Simulator
 
 
@@ -110,11 +112,13 @@ def main() -> None:
             join_env,
             args.nodes,
             datacollector,
-            WORLD_SIZE,
+            DEFAULT_LOG_WORLD_SIZE,
             args.capacity,
             DEFAULT_CRASHMEAN,
             DEFAULT_CRASHVARIANCE,
             args.crashrate,
+            DEFAULT_MEAN_SERVICE_TIME,
+            DEFAULT_PEER_TIMEOUT,
             args.alpha,
             args.k,
         )
@@ -124,17 +128,36 @@ def main() -> None:
             join_env,
             args.nodes,
             datacollector,
-            WORLD_SIZE,
+            DEFAULT_LOG_WORLD_SIZE,
             args.capacity,
             DEFAULT_CRASHMEAN,
             DEFAULT_CRASHVARIANCE,
             args.crashrate,
-            args.k
+            DEFAULT_MEAN_SERVICE_TIME,
+            DEFAULT_PEER_TIMEOUT,
+            args.k,
+            DEFAULT_STABILIZE_PERIOD_MEAN,
+            DEFAULT_STABILIZE_PERIOD_STDDEV,
+            DEFAULT_STABILIZE_PERIOD_MIN,
+            DEFAULT_UPDATE_PERIOD_MEAN,
+            DEFAULT_UPDATE_PERIOD_STDDEV,
+            DEFAULT_UPDATE_PERIOD_MIN,
         )
 
     simulator = Simulator(
-        join_env, net_manager, keys, args.plot, mean_arrival=args.rate, ext=args.ext, join_lambda1=DEFAULT_JOINLAMBDA1,
-        join_lambda2=DEFAULT_JOINLAMBDA2, join_rate=args.joinrate
+        join_env,
+        net_manager,
+        keys,
+        DEFAULT_MAX_VALUE,
+        args.plot,
+        args.ext,
+        args.rate,
+        DEFAULT_CLIENT_TIMEOUT,
+        DEFAULT_MEAN_SERVICE_TIME,
+        DEFAULT_JOINLAMBDA1,
+        DEFAULT_JOINLAMBDA2,
+        args.joinrate,
+        DEFAULT_JOIN_P,
     )
     join_env.process(simulator.simulate_join())
     join_env.run()

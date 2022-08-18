@@ -21,7 +21,7 @@ from common.utils import (
     Request,
     SimpyProcess,
 )
-from simulation.constants import DEFAULT_PEER_TIMEOUT
+from simulation.constants import DEFAULT_NUMBER_OF_SERVERS
 
 
 @dataclass
@@ -30,19 +30,20 @@ class Node(Loggable):
 
     datacollector: DataCollector = field(repr=False)
     location: Tuple[float, float] = field(repr=False)
-    mean_service_time: float = field(repr=False, default=0.1)
-    max_timeout: float = field(repr=False, default=DEFAULT_PEER_TIMEOUT)
-    log_world_size: int = field(repr=False, default=10)
-    mean_transmission_delay: float = field(repr=False, default=0.5)
-    in_queue: Resource = field(init=False, repr=False)
-    queue_capacity: int = field(repr=False, default=100)
+    max_timeout: float = field(repr=False)
+    log_world_size: int = field(repr=False)
+    # mean_transmission_delay: float = field(repr=False)
+    queue_capacity: int = field(repr=False)
+    mean_service_time: float = field(repr=False)
+
     crashed: bool = field(init=False, default=False)
+    in_queue: Resource = field(init=False, repr=False)
 
     @abstractmethod
     def __post_init__(self) -> None:
         super().__post_init__()
         self.id = self._compute_key(self.name)
-        self.in_queue = Resource(self.env, capacity=1)
+        self.in_queue = Resource(self.env, capacity=DEFAULT_NUMBER_OF_SERVERS)
 
     def crash(self) -> None:
         self.crashed = True

@@ -1,4 +1,5 @@
 import types
+from functools import partial
 from typing import Type
 
 import pytest
@@ -20,8 +21,13 @@ def cls() -> Type[Node]:
 
 @pytest.fixture
 def conf_two(cls, env, dc):
-    n1 = cls(env, dc)
-    n2 = cls(env, dc)
+    location1, location2 = (0, 0), (1, 1)
+    timeout = 10
+    log_world_size = 160
+    queue_capacity = 100
+    mean_service_time = 0.1
+    n1 = cls(env, dc, location1, timeout, log_world_size, queue_capacity, mean_service_time)
+    n2 = cls(env, dc, location2, timeout, log_world_size, queue_capacity, mean_service_time)
     return n1, n2, env
 
 
@@ -38,6 +44,7 @@ class TestPacket:
 
 
 class TestNode:
+
     def test_send_recv_discard(self, conf_two):
         """
         Test limited size buffers.
@@ -101,42 +108,24 @@ class TestNode:
 
 
 class TestDHTNode:
-    # def test_init(self):
-    #     n = "N1"
-    #     mt = 1.0
-    #     lws = 2
-    #     mtd = 3.0
-    #     qc = 10
-    #     mst = 2
-    #     n1 = self.NonAbstractNode(
-    #         self.env,
-    #         n,
-    #         datacollector=self.dc,
-    #         max_timeout=mt,
-    #         log_world_size=lws,
-    #         mean_transmission_delay=mtd,
-    #         queue_capacity=qc,
-    #         mean_service_time=mst
-    #     )
-    #     assert n1.env is self.env
-    #     assert n1.name == n
-    #     assert n1.datacollector is self.dc
-    #     assert n1.max_timeout == mt
-    #     assert n1.log_world_size == lws
-    #     assert n1.mean_transmission_delay == mtd
-    #     assert len(n1.in_queue.queue) == 0
-    #     assert n1.queue_capacity == qc
-    #     assert n1.mean_service_time == mst
-    #     assert n1.id == n1._compute_key(n1.name)
 
-    @pytest.fixture(params=[ChordNode, KadNode])
+    @pytest.fixture(params=[
+        partial(ChordNode, k=1, stabilize_period=100, stabilize_stddev=1, stabilize_mincap=10, update_finger_period=100,
+                update_finger_stddev=1, update_finger_mincap=100),
+        partial(KadNode, alpha=1, k=1),
+    ])
     def dht_cls(self, request) -> Type[DHTNode]:
         return request.param
 
-    @pytest.fixture()
+    @pytest.fixture
     def conf_two(self, dht_cls, env, dc):
-        n1 = dht_cls(env, dc)
-        n2 = dht_cls(env, dc)
+        location1, location2 = (0, 0), (1, 1)
+        timeout = 10
+        log_world_size = 160
+        queue_capacity = 100
+        mean_service_time = 0.1
+        n1 = dht_cls(env, dc, location1, timeout, log_world_size, queue_capacity, mean_service_time)
+        n2 = dht_cls(env, dc, location2, timeout, log_world_size, queue_capacity, mean_service_time)
         return n1, n2, env
 
     @pytest.fixture()
