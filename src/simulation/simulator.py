@@ -21,7 +21,7 @@ class Simulator(Loggable):
     ext: str
 
     # client parameters
-    client_arrival_rate: float
+    client_arrival_mean: float
     client_max_timeout: float
     client_mean_service_time: float
 
@@ -49,7 +49,7 @@ class Simulator(Loggable):
         self.join_lambda2 *= self.join_rate
 
     def get_arrival_time(self) -> float:
-        return self.rbg.get_exponential(self.client_arrival_rate)
+        return self.rbg.get_exponential(self.client_arrival_mean)
 
     def get_join_time(self) -> float:
         if self.join_rate == 0:

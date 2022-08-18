@@ -151,7 +151,7 @@ def main() -> None:
         DEFAULT_MAX_VALUE,
         args.plot,
         args.ext,
-        args.rate,
+        1 / args.rate,
         DEFAULT_CLIENT_TIMEOUT,
         DEFAULT_MEAN_SERVICE_TIME,
         DEFAULT_JOINLAMBDA1,
