@@ -85,7 +85,8 @@ setup(
         'tqdm>=4.62.3',
         'folium>=0.12.1',
         'scipy>=1.8.1',
-        'runexpy>=0.0.1'
+        'runexpy>=0.0.1',
+        'pandas',
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -99,7 +100,6 @@ setup(
         # 'dev': ['check-manifest'],
         'test': ['pytest>=7.1.2'],
         'plot': [
-            'pandas',
             'streamlit',
             ]
     },
