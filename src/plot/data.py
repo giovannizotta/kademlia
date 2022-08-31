@@ -17,8 +17,8 @@ def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
         for node, queue_load in dct["queue_load"].items():
             tmp = pd.DataFrame(queue_load, columns=["time", "load"])
             tmp["node"] = node
-            for k, v in campaign_results.params.items():
-                tmp[k] = v
+            for column in ['seed', 'dht']:
+                tmp[column] = campaign_results.params[column]
             result.append(tmp)
     return pd.concat(result, ignore_index=True)
 
@@ -32,8 +32,8 @@ def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
             dct = json.load(f)
         for node, time in dct["crashed_time"].items():
             tmp = {"node": node, "time": time}
-            for k, v in campaign_results.params.items():
-                tmp[k] = v
+            for column in ['seed', 'dht']:
+                tmp[column] = campaign_results.params[column]
             result.append(tmp)
     return pd.DataFrame(result)
 
@@ -47,8 +47,8 @@ def get_join_time(conf: IterParamsT) -> pd.DataFrame:
             dct = json.load(f)
         for node, time in dct["joined_time"].items():
             tmp = {"node": node, "time": time}
-            for k, v in campaign_results.params.items():
-                tmp[k] = v
+            for column in ['seed', 'dht']:
+                tmp[column] = campaign_results.params[column]
             result.append(tmp)
     return pd.DataFrame(result)
 
@@ -62,8 +62,8 @@ def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
         with open(files["data.json"]) as f:
             dct = json.load(f)
         tmp = pd.DataFrame(dct["client_requests"], columns=["time", "latency", "hops"])
-        for k, v in campaign_results.params.items():
-            tmp[k] = v
+        for column in ['seed', 'dht']:
+            tmp[column] = campaign_results.params[column]
         result.append(tmp)
     df = pd.concat(result, ignore_index=True)
     return df
@@ -77,8 +77,8 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
         with open(files["data.json"]) as f:
             dct = json.load(f)
         tmp = pd.DataFrame(dct["timed_out_requests"], columns=["time"])
-        for k, v in campaign_results.params.items():
-            tmp[k] = v
+        for column in ['seed', 'dht']:
+            tmp[column] = campaign_results.params[column]
         result.append(tmp)
     df = pd.concat(result, ignore_index=True)
     return df
