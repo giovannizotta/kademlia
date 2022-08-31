@@ -1,70 +1,81 @@
 import json
+from functools import partial
+from multiprocess.pool import Pool
+from typing import List, Tuple, Dict
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 from runexpy.campaign import Campaign
 from runexpy.utils import IterParamsT
+from runexpy.result import Result
+
+PROCESSES = 32
+
+
+def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
+    # return pd.DataFrame([])
+    campaign_results, files = res
+    with open(files["data.json"]) as f:
+        dct = json.load(f)
+    result = []
+    for node, queue_load in dct["queue_load"].items():
+        tmp = pd.DataFrame(queue_load, columns=["time", "load"])
+        tmp["node"] = node
+        for column in ['seed', 'dht']:
+            tmp[column] = campaign_results.params[column]
+        result.append(tmp)
+    return pd.concat(result, ignore_index=True)
 
 
 @st.experimental_memo
 def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(conf):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        for node, queue_load in dct["queue_load"].items():
-            tmp = pd.DataFrame(queue_load, columns=["time", "load"])
-            tmp["node"] = node
-            for column in ['seed', 'dht']:
-                tmp[column] = campaign_results.params[column]
-            result.append(tmp)
+    result = Pool(processes=PROCESSES).map(read_load, c.get_results_for(conf))
     return pd.concat(result, ignore_index=True)
+
+
+def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> pd.DataFrame:
+    campaign_results, files = res
+    with open(files["data.json"]) as f:
+        dct = json.load(f)
+    tmp = pd.DataFrame(dct[target].items(), columns=["node", "time"])
+    for column in ['seed', 'dht']:
+        tmp[column] = campaign_results.params[column]
+    return tmp
 
 
 @st.experimental_memo
 def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(conf):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        for node, time in dct["crashed_time"].items():
-            tmp = {"node": node, "time": time}
-            for column in ['seed', 'dht']:
-                tmp[column] = campaign_results.params[column]
-            result.append(tmp)
-    return pd.DataFrame(result)
+    fn = partial(read_times, target="crashed_time")
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
+    return pd.concat(result, ignore_index=True)
 
 
 @st.experimental_memo
 def get_join_time(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(conf):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        for node, time in dct["joined_time"].items():
-            tmp = {"node": node, "time": time}
-            for column in ['seed', 'dht']:
-                tmp[column] = campaign_results.params[column]
-            result.append(tmp)
-    return pd.DataFrame(result)
+    fn = partial(read_times, target="joined_time")
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
+    return pd.concat(result, ignore_index=True)
+
+
+def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> pd.DataFrame:
+    campaign_results, files = res
+    with open(files["data.json"]) as f:
+        dct = json.load(f)
+    tmp = pd.DataFrame(dct[target], columns=columns)
+    for column in ['seed', 'dht']:
+        tmp[column] = campaign_results.params[column]
+    return tmp
 
 
 @st.experimental_memo
-# @st.experimental_memo
 def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(conf):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        tmp = pd.DataFrame(dct["client_requests"], columns=["time", "latency", "hops"])
-        for column in ['seed', 'dht']:
-            tmp[column] = campaign_results.params[column]
-        result.append(tmp)
+    fn = partial(read_client, target="client_requests", columns=["time", "latency", "hops"])
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = pd.concat(result, ignore_index=True)
     return df
 
@@ -72,14 +83,8 @@ def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
 @st.experimental_memo
 def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load('campaigns/experiment')
-    result = list()
-    for campaign_results, files in c.get_results_for(conf):
-        with open(files["data.json"]) as f:
-            dct = json.load(f)
-        tmp = pd.DataFrame(dct["timed_out_requests"], columns=["time"])
-        for column in ['seed', 'dht']:
-            tmp[column] = campaign_results.params[column]
-        result.append(tmp)
+    fn = partial(read_client, target="timed_out_requests", columns=["time"])
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = pd.concat(result, ignore_index=True)
     return df
 
