@@ -87,6 +87,7 @@ setup(
         'scipy>=1.8.1',
         'runexpy>=0.0.1',
         'pandas',
+        'multiprocess',
     ],  # Optional
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
