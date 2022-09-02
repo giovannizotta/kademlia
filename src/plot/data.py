@@ -47,7 +47,7 @@ def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> pd.DataFrame:
 
 @st.experimental_memo
 def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
+    c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_times, target="crashed_time")
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     return pd.concat(result, ignore_index=True)
@@ -55,7 +55,7 @@ def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
 
 @st.experimental_memo
 def get_join_time(conf: IterParamsT) -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
+    c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_times, target="joined_time")
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     return pd.concat(result, ignore_index=True)
@@ -73,7 +73,7 @@ def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[s
 
 @st.experimental_memo
 def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
+    c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="client_requests", columns=["time", "latency", "hops"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = pd.concat(result, ignore_index=True)
@@ -82,7 +82,7 @@ def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
 
 @st.experimental_memo
 def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
+    c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="timed_out_requests", columns=["time"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = pd.concat(result, ignore_index=True)
