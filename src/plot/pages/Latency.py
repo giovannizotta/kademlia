@@ -54,6 +54,7 @@ def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str
     timeout_df["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
     timeout_df["hops"] = -1
     client_df = pd.concat([client_df, timeout_df], ignore_index=True)
+    print(f"{dht} has had {len(client_df)} successes and {len(timeout_df)} timeouts")
 
     client_df = client_df.sort_values(by="latency", ignore_index=True)
     client_df["count"] = client_df.groupby("seed").cumcount()

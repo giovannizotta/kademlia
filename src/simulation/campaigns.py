@@ -9,11 +9,11 @@ from simulation.simulator import Simulator
 
 CONF: IterParamsT = {
     "dht": [Simulator.KAD, Simulator.CHORD],
-    "rate": [1, 2, 5, 10],
+    "rate": [0.1],
     "seed": list(range(420, 430)),
     "nkeys": [10000],
-    "crashrate": [1, 5, 10],
-    "joinrate": [1, 5, 10],
+    "crashrate": [0.1],
+    "joinrate": [1],
 }
 
 
