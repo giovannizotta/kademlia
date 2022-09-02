@@ -21,8 +21,9 @@ def main():
 
     st.markdown(f"Client arrival rate: {clientrate}")
 
-    cdfs = list()
-    healthy = list()
+    testcdfs = list()
+    # cdfs = list()
+    # healthy = list()
     for dht in CONF.get("dht"):
         conf = {
             "seed": CONF.get("seed"),
@@ -39,15 +40,31 @@ def main():
         client_df = client_df[(client_df["time"] >= start_time) & (client_df["time"] <= end_time)]
         timeout_df = timeout_df[(timeout_df["time"] >= start_time) & (timeout_df["time"] <= end_time)]
 
-        cdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
-        healthy.append(get_healthy_chart(conf, start_time, end_time, dht))
+        #cdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
+        testcdfs.append(get_latency_ecdf_test(client_df, timeout_df, dht))
+        #healthy.append(get_healthy_chart(conf, start_time, end_time, dht))
 
-    layers = alt.layer(*cdfs)
+    # layers = alt.layer(*cdfs)
+    # st.altair_chart(layers, use_container_width=True)
+
+    layers = alt.layer(*testcdfs)
     st.altair_chart(layers, use_container_width=True)
 
-    st.markdown("Number of active nodes in the network over time")
-    layers = alt.layer(*healthy)
-    st.altair_chart(layers, use_container_width=True)
+    # st.markdown("Number of active nodes in the network over time")
+    # layers = alt.layer(*healthy)
+    # st.altair_chart(layers, use_container_width=True)
+
+
+def get_latency_ecdf_test(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
+    client_df = client_df[client_df["seed"] == 420]
+    client_df = client_df.sort_values(by="latency", ignore_index=True)
+    client_df["count"] = client_df.cumcount()
+
+    return alt.Chart(client_df).mark_point(filled=True, size=30).encode(
+        x=alt.X('latency', axis=alt.Axis(title="Latency")),
+        y=alt.Y('count', title="CDF"),
+        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
+    )
 
 
 def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
