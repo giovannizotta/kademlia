@@ -11,7 +11,7 @@ from runexpy.utils import IterParamsT
 from runexpy.result import Result
 
 PROCESSES = 32
-
+CAMPAIGN_DIR = 'campaigns/uniform'
 
 def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
     # return pd.DataFrame([])
@@ -30,7 +30,7 @@ def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
 
 @st.experimental_memo
 def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
-    c = Campaign.load('campaigns/experiment')
+    c = Campaign.load(CAMPAIGN_DIR)
     result = Pool(processes=PROCESSES).map(read_load, c.get_results_for(conf))
     return pd.concat(result, ignore_index=True)
 
