@@ -66,9 +66,10 @@ class Simulator(Loggable):
         return Simulator.CLIENT_ACTIONS[a_id]
 
     def get_random_key(self) -> str:
-        alpha = 1
-        n_keys = len(self.keys)
-        k_id = self.rbg.get_zipfian(alpha, n_keys)
+        # alpha = 1
+        # n_keys = len(self.keys)
+        # k_id = self.rbg.get_zipfian(alpha, n_keys)
+        k_id = self.rbg.get_from_range(len(self.keys))
         return self.keys[k_id]
 
     def build_network(self) -> SimpyProcess[None]:
