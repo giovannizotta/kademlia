@@ -58,7 +58,7 @@ def main():
 def get_latency_ecdf_test(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
     client_df = client_df[client_df["seed"] == 420]
     client_df = client_df.sort_values(by="latency", ignore_index=True)
-    client_df["count"] = client_df.cumcount()
+    client_df["count"] = range(len(client_df))
 
     return alt.Chart(client_df).mark_point(filled=True, size=30).encode(
         x=alt.X('latency', axis=alt.Axis(title="Latency")),

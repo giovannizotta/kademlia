@@ -11,7 +11,7 @@ from runexpy.utils import IterParamsT
 from runexpy.result import Result
 
 PROCESSES = 32
-CAMPAIGN_DIR = 'campaigns/uniform'
+CAMPAIGN_DIR = 'campaigns/experiment'
 
 def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
     # return pd.DataFrame([])
