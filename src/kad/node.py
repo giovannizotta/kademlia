@@ -16,6 +16,7 @@ from common.utils import DHTTimeoutError, Request, SimpyProcess
 @dataclass
 class KadNode(DHTNode):
     buckets: List[List[KadNode]] = field(init=False, repr=False)
+    blackset: Set[KadNode] = field(init=False, repr=False)
     alpha: int = field(repr=False)
     k: int = field(repr=False)
 
@@ -25,6 +26,7 @@ class KadNode(DHTNode):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.buckets = [[] for _ in range(self.log_world_size)]
+        self.blackset = set()
 
     def process_sender(self: KadNode, packet: Packet) -> None:
         if isinstance(packet.sender, Client):
@@ -32,6 +34,8 @@ class KadNode(DHTNode):
         sender = packet.sender
         assert isinstance(sender, KadNode)
         self.log(f"processing sender {sender.name}")
+        if sender in self.blackset:
+            self.blackset.remove(sender)
         self.update_bucket(sender)
 
     def manage_packet(self, packet: Packet) -> None:
@@ -58,7 +62,8 @@ class KadNode(DHTNode):
         current_set = set(current)
         for packet in packets:
             for neigh in packet.message.data["neighbors"]:
-                current_set.add(neigh)
+                if neigh not in self.blackset:
+                    current_set.add(neigh)
         # print(current_set)
 
         candidates = sorted(current_set, key=lambda x: x._compute_distance(key))
@@ -97,6 +102,7 @@ class KadNode(DHTNode):
     def remove_from_bucket(self, node: KadNode) -> None:
         bucket = self.buckets[self.get_bucket_for(node.id)]
         bucket.remove(node)
+        self.blackset.add(node)
 
     def find_node(self, key: Union[int, str]) -> SimpyProcess[List[Process]]:
         key_hash = self._compute_key(key) if isinstance(key, str) else key
