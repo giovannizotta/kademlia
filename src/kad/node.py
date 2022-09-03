@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from math import log2
-from typing import Iterator, List, Sequence, Set, Union
+from typing import Iterator, List, Sequence, Set, Union, Tuple
 
 from simpy.events import Process
 
@@ -94,6 +94,10 @@ class KadNode(DHTNode):
                     bucket[i] = bucket[i + 1]
                 bucket[-1] = node
 
+    def remove_from_bucket(self, node: KadNode) -> None:
+        bucket = self.buckets[self.get_bucket_for(node.id)]
+        bucket.remove(node)
+
     def find_node(self, key: Union[int, str]) -> SimpyProcess[List[Process]]:
         key_hash = self._compute_key(key) if isinstance(key, str) else key
         self.log(f"Looking for key {key}")
@@ -104,11 +108,12 @@ class KadNode(DHTNode):
         found = False
         hop = 0
         while not found:
-            requests = self.ask_neighbors(current, contacted, key_hash)
+            to_contact, requests = self.ask_neighbors(current, contacted, key_hash)
             hop += 1
             packets: List[Packet] = list()
             try:
                 yield from self.wait_resps(requests, packets)
+                self.clear_timeout_nodes(to_contact, packets)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
 
@@ -138,7 +143,7 @@ class KadNode(DHTNode):
 
     def ask_neighbors(
             self, current: List[KadNode], contacted: Set[KadNode], key: int
-    ) -> List[Request]:
+    ) -> Tuple[List[KadNode], List[Request]]:
         # find nodes to contact
         to_contact = list()
         for node in current:
@@ -155,7 +160,7 @@ class KadNode(DHTNode):
             packet = Message(ptype=MessageType.GET_NODE, data=dict(key=key))
             sent_req = self.send_req(node, packet)
             requests.append(sent_req)
-        return requests
+        return to_contact, requests
 
     def _compute_distance(self, from_key: int) -> int:
         return self.id ^ from_key
@@ -168,6 +173,12 @@ class KadNode(DHTNode):
             return True
         self.log("Not able to join the network", level=logging.WARNING)
         return False
+
+    def clear_timeout_nodes(self, to_contact: List[KadNode], packets: List[Packet]) -> None:
+        answering = {packet.sender for packet in packets}
+        for node in to_contact:
+            if node not in answering:
+                self.remove_from_bucket(node)
 
 
 def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
