@@ -91,20 +91,24 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
 
 def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> pd.DataFrame:
-    slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
-    df["slot"] = df[slot_column].apply(lambda x: x // slot_width).astype(int)
+    df["slot_column_max"] = df.groupby("seed")[slot_column].transform("max")
+    df["slot_column_min"] = df.groupby("seed")[slot_column].transform("min")
+    df["slot_width"] = (df["slot_column_max"] - df["slot_column_mix"]) / nslots
+    df["slot"] = df[slot_column] // df["slot_width"]
 
+    # foreach seed, foreach slot, aggregate the metric + fill missing values
     df = df.groupby(["seed", "slot"]).agg(
         slot_metric=(metric, slot_agg),
     ).unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")["slot_metric"].ffill().fillna(0)
 
+    # foreach slot, compute the mean across seeds aggregate results with confidence intervals
     df = df.groupby(["slot"]).agg(
         mean=("slot_metric", "mean"),
         sem=("slot_metric", "sem"),
     ).reset_index().fillna(0)
 
-    df["slot"] *= slot_width
+    df["slot"] *= df["slot_width"]
 
     df["ci95_hi"] = df["mean"] + 1.96 * df["sem"]
     df["ci95_lo"] = df["mean"] - 1.96 * df["sem"]
