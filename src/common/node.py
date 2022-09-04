@@ -134,7 +134,8 @@ class Node(Loggable):
         self.env.process(self._send_msg(dest, msg))
 
     def wait_resps(
-            self, sent_reqs: Sequence[Request], packets: List[Packet]
+            self, sent_reqs: Sequence[Request], packets: List[Packet],
+            max_timeout=None,
     ) -> SimpyProcess[None]:
         """Wait for the responses of the recipients
 
@@ -148,8 +149,9 @@ class Node(Loggable):
         Returns:
             List[Packet]: list of packets received
         """
+        max_timeout = max_timeout or self.max_timeout
         sent_req = self.env.all_of(sent_reqs)
-        timeout = self.env.timeout(self.max_timeout)
+        timeout = self.env.timeout(max_timeout)
         wait_event = self.env.any_of((timeout, sent_req))
         ans = yield wait_event
         timeout_found = False

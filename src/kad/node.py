@@ -11,6 +11,7 @@ from common.client import Client
 from common.node import DHTNode
 from common.packet import Message, MessageType, Packet
 from common.utils import DHTTimeoutError, Request, SimpyProcess
+from simulation.constants import DEFAULT_KAD_FIND_NODE_TIMEOUT
 
 
 @dataclass
@@ -118,7 +119,7 @@ class KadNode(DHTNode):
             hop += 1
             packets: List[Packet] = list()
             try:
-                yield from self.wait_resps(requests, packets)
+                yield from self.wait_resps(requests, packets, DEFAULT_KAD_FIND_NODE_TIMEOUT)
                 self.clear_timeout_nodes(to_contact, packets)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
