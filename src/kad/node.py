@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from math import log2
 from typing import Iterator, List, Sequence, Set, Union, Tuple
 
+import simpy
 from simpy.events import Process
 
 from common.client import Client
@@ -127,19 +128,20 @@ class KadNode(DHTNode):
             Tuple[List[KadNode], int]:
         finished = False
         hop = 0
-        active_requests = set()
+        active_requests = list()
         while not finished:
             _, requests = self.ask_neighbors(current, contacted, key_hash, len(active_requests))
-            req_or_timeout = [req | self.env.timeout(DEFAULT_KAD_FIND_NODE_TIMEOUT) for req in requests]
-            active_requests.update(req_or_timeout)
+            req_or_timeout = [(req, self.env.timeout(DEFAULT_KAD_FIND_NODE_TIMEOUT)) for req in requests]
+            active_requests.extend(req_or_timeout)
             hop += 1
             try:
                 packet = yield from self.wait_any_resp(active_requests)
                 self.log(f"Received {packet}")
-                updated = self.update_candidates([packet], key_hash, current, contacted)
-                finished = updated and not active_requests
+                not_updated = self.update_candidates([packet], key_hash, current, contacted)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
+                not_updated = True
+            finished = not_updated and not active_requests
 
         return current, hop
 
@@ -213,15 +215,22 @@ class KadNode(DHTNode):
             if node not in answering:
                 self.remove_from_bucket(node)
 
-    def wait_any_resp(self, active_requests: Set[Request]) -> SimpyProcess[Packet]:
-        ans = yield self.env.any_of(active_requests)
-        assert len(ans) == 1
+    def wait_any_resp(self, active_requests: List[Tuple[Request, simpy.Timeout]]) -> SimpyProcess[Packet]:
+        ans = yield self.env.any_of(req | timeout for req, timeout in active_requests)
+        assert len(list(ans.items())) == 1
         for event, ret_val in ans.items():
-            active_requests.remove(event)
-            if isinstance(ret_val, Packet):
-                return ret_val
-            else:
+            if isinstance(event, simpy.Timeout):
+                for req, timeout in active_requests:
+                    if timeout == event:
+                        active_requests.remove((req, timeout))
+                        break
                 raise DHTTimeoutError()
+            else:
+                for req, timeout in active_requests:
+                    if req == event:
+                        active_requests.remove((req, timeout))
+                        break
+                return ret_val
 
 
 def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
