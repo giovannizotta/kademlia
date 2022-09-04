@@ -135,9 +135,9 @@ class KadNode(DHTNode):
             active_requests.extend(req_or_timeout)
             hop += 1
             try:
-                packet = yield from self.wait_any_resp(active_requests)
-                self.log(f"Received {packet}")
-                not_updated = self.update_candidates([packet], key_hash, current, contacted)
+                packets = yield from self.wait_any_resp(active_requests)
+                self.log(f"Received {packets}")
+                not_updated = self.update_candidates(packets, key_hash, current, contacted)
             except DHTTimeoutError:
                 self.log("DHT timeout error", level=logging.WARNING)
                 not_updated = True
@@ -217,20 +217,18 @@ class KadNode(DHTNode):
 
     def wait_any_resp(self, active_requests: List[Tuple[Request, simpy.Timeout]]) -> SimpyProcess[Packet]:
         ans = yield self.env.any_of(req | timeout for req, timeout in active_requests)
-        assert len(list(ans.items())) == 1
-        for event, ret_val in ans.items():
-            if isinstance(event, simpy.Timeout):
-                for req, timeout in active_requests:
-                    if timeout == event:
-                        active_requests.remove((req, timeout))
-                        break
-                raise DHTTimeoutError()
-            else:
-                for req, timeout in active_requests:
-                    if req == event:
-                        active_requests.remove((req, timeout))
-                        break
-                return ret_val
+        resp_and_timeouts = []
+        packets = []
+        for req, timeout in active_requests:
+            if req in ans:
+                packets.append(ans[req])
+            if timeout in ans or req in ans:
+                resp_and_timeouts.append((req, timeout))
+        for pair in resp_and_timeouts:
+            active_requests.remove(pair)
+        if not packets:
+            raise DHTTimeoutError()
+        return packets
 
 
 def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:

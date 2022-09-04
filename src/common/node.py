@@ -5,7 +5,7 @@ import logging
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from bitstring import BitArray
 from simpy.core import Environment
@@ -219,7 +219,7 @@ class DHTNode(Node):
 
     @abstractmethod
     def find_node(
-            self, key: int | str, ask_to: Optional[DHTNode] = None
+            self, key: Union[int, str], ask_to: Optional[DHTNode] = None
     ) -> SimpyProcess[List[Process]]:
         """Iteratively find the closest node(s) to the given key
 
@@ -299,7 +299,7 @@ class DHTNode(Node):
         return requests
 
     def unzip_find(
-            self, key: int | str, function: Callable
+            self, key: Union[int, str], function: Callable
     ) -> SimpyProcess[Tuple[List[DHTNode], int]]:
         processes = yield from self.find_node(key)
         ans = yield function(processes)
