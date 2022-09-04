@@ -105,13 +105,8 @@ class KadNode(DHTNode):
         bucket.remove(node)
         self.blackset.add(node)
 
-    def find_node(self, key: Union[int, str]) -> SimpyProcess[List[Process]]:
-        key_hash = self._compute_key(key) if isinstance(key, str) else key
-        self.log(f"Looking for key {key}")
-        contacted = set()
-        contacted.add(self)
-        current = self.pick_neighbors(key_hash)
-        assert len(current) > 0
+    def find_strict_parallelism(self, key_hash: int, current: List[KadNode], contacted: Set[KadNode]) -> \
+            Tuple[List[KadNode], int]:
         found = False
         hop = 0
         while not found:
@@ -126,6 +121,36 @@ class KadNode(DHTNode):
 
             self.log(f"Received {packets}")
             found = self.update_candidates(packets, key_hash, current, contacted)
+        return current, hop
+
+    def find_bounded_parallelism(self, key_hash: int, current: List[KadNode], contacted: Set[KadNode]) -> \
+            Tuple[List[KadNode], int]:
+        finished = False
+        hop = 0
+        active_requests = set()
+        while not finished:
+            _, requests = self.ask_neighbors(current, contacted, key_hash, len(active_requests))
+            req_or_timeout = [req | self.env.timeout(DEFAULT_KAD_FIND_NODE_TIMEOUT) for req in requests]
+            active_requests.update(req_or_timeout)
+            hop += 1
+            try:
+                packet = yield from self.wait_any_resp(active_requests)
+                self.log(f"Received {packet}")
+                updated = self.update_candidates([packet], key_hash, current, contacted)
+                finished = updated and not active_requests
+            except DHTTimeoutError:
+                self.log("DHT timeout error", level=logging.WARNING)
+
+        return current, hop
+
+    def find_node(self, key: Union[int, str]) -> SimpyProcess[List[Process]]:
+        key_hash = self._compute_key(key) if isinstance(key, str) else key
+        self.log(f"Looking for key {key}")
+        contacted = set()
+        contacted.add(self)
+        current = self.pick_neighbors(key_hash)
+        assert len(current) > 0
+        current, hop = yield from self.find_bounded_parallelism(key_hash, current, contacted)
 
         for node in current:
             self.update_bucket(node)
@@ -149,15 +174,16 @@ class KadNode(DHTNode):
         return sorted(nodes, key=lambda x: x._compute_distance(key))[: self.k]
 
     def ask_neighbors(
-            self, current: List[KadNode], contacted: Set[KadNode], key: int
+            self, current: List[KadNode], contacted: Set[KadNode], key: int, num_active_requests: int = 0,
     ) -> Tuple[List[KadNode], List[Request]]:
+        num_to_contact = self.alpha - num_active_requests
         # find nodes to contact
         to_contact = list()
         for node in current:
             if node not in contacted:
                 contacted.add(node)
                 to_contact.append(node)
-            if len(to_contact) == self.alpha:
+            if len(to_contact) == num_to_contact:
                 break
         # send them a request
         # print(f"{self.name} Contacting {len(to_contact)} nodes")
@@ -186,6 +212,16 @@ class KadNode(DHTNode):
         for node in to_contact:
             if node not in answering:
                 self.remove_from_bucket(node)
+
+    def wait_any_resp(self, active_requests: Set[Request]) -> SimpyProcess[Packet]:
+        ans = yield self.env.any_of(active_requests)
+        assert len(ans) == 1
+        for event, ret_val in ans.items():
+            active_requests.remove(event)
+            if isinstance(ret_val, Packet):
+                return ret_val
+            else:
+                raise DHTTimeoutError()
 
 
 def neigh_picker(node: KadNode, key: int) -> Iterator[KadNode]:
