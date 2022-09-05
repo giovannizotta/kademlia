@@ -130,6 +130,8 @@ class Simulator(Loggable):
             proc = self.get_client_behaviour(client)
             self.env.process(proc)
             i += 1
+            if i%10000 == 0:
+                self.log(f"{i} clients processed", level=logging.ERROR)
 
     def simulate_joins(self) -> SimpyProcess[None]:
         while True:
