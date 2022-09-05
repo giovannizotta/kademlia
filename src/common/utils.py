@@ -137,7 +137,7 @@ class RandomBatchGenerator(metaclass=Singleton):
     _rng: np.random.Generator = field(init=False, repr=False)
     seed: int = 420
     precision: int = 4
-    BATCH_SIZE = 10000
+    BATCH_SIZE = 100
     _instance = None
 
     def __post_init__(self):
