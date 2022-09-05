@@ -141,7 +141,7 @@ class ChordNode(DHTNode):
             self, key: int, index: int, ask_to: Optional[ChordNode]
     ) -> Tuple[ChordNode, bool, Optional[Request]]:
         self.log(f"looking for node with key {key} on index {index}")
-        if ask_to is not None:
+        if ask_to is not None and ask_to is not self:
             self.log(f"asking to {ask_to}")
             best_node, found = ask_to, False
         else:
@@ -181,6 +181,7 @@ class ChordNode(DHTNode):
                     f"find_node_on_index for {key}, {index} timed out.",
                     level=logging.WARNING,
                 )
+                self.purge(best_node)
                 return None, -1
         self.log(f"found node for key {key} on index {index}: {best_node}")
         return best_node, hops
@@ -294,6 +295,10 @@ class ChordNode(DHTNode):
             self.send_notify(index)
         except DHTTimeoutError:
             self.log(f"Timeout on stabilize on index {index}", level=logging.WARNING)
+            self.purge(succ)
+            joined = yield from self.join_network_on_index(self, index)
+            if not joined:
+                self.log("failed to join after stabilize", level=logging.ERROR)
 
     def fix_finger_on_index(self, finger_index: int, index: int) -> SimpyProcess[None]:
         key = (self.ids[index] + 2 ** finger_index) % (2 ** self.log_world_size)
@@ -379,3 +384,9 @@ class ChordNode(DHTNode):
                 node, _ = yield from self.find_node_on_index(key, index)
                 if node is not None:
                     self._update_ft(x, index, node)
+
+    def purge(self, node: ChordNode) -> None:
+        for index in range(self.k):
+            for finger_index in range(self.log_world_size):
+                if self.ft[index][finger_index] == node:
+                    self.ft[index][finger_index] = self
