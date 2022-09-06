@@ -11,7 +11,7 @@ CONF: IterParamsT = {
     "dht": [Simulator.KAD, Simulator.CHORD],
     "rate": [0.1],
     "seed": list(range(420, 430)),
-    "nkeys": [10000],
+    "nkeys": [1000],
     "crashrate": [0.1],
     "joinrate": [1],
 }
