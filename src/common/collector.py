@@ -54,7 +54,7 @@ class DataCollector:
             "messages_after_crash": {k: [round(t, self.DECIMALS) for t in v] for k, v in
                                      self.messages_after_crash.items()},
             "true_value": [(round(t, self.DECIMALS), k, int(v)) for t, k, v in self.true_value],
-            "returned_value": [(round(t, self.DECIMALS), k, int(v)) for t, k, v in self.returned_value],
+            "returned_value": [(round(t, self.DECIMALS), k, int(v) if v is not None else v) for t, k, v in self.returned_value],
         }
 
     @classmethod
