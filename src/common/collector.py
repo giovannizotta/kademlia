@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Union, ClassVar
@@ -27,12 +28,19 @@ class DataCollector:
 
     failed_to_join: List[float] = field(default_factory=list)
 
+    # list of tuples (store_request_time, key, value)
+    true_value: List[Tuple[float, str, int]] = field(default_factory=list)
+    # list of tuples (find_request_time, key, value)
+    returned_value: List[Tuple[float, str, int]] = field(default_factory=list)
+
     DECIMALS: ClassVar[int] = 2
 
     def clear(self) -> None:
         self.client_requests.clear()
         self.queue_load.clear()
         self.crashed_time.clear()
+        self.true_value.clear()
+        self.returned_value.clear()
 
     def to_dict(self) -> Dict[str, any]:
         return {
@@ -45,6 +53,8 @@ class DataCollector:
                            self.queue_load.items()},
             "messages_after_crash": {k: [round(t, self.DECIMALS) for t in v] for k, v in
                                      self.messages_after_crash.items()},
+            "true_value": [(round(t, self.DECIMALS), k, v) for t, k, v in self.true_value],
+            "returned_value": [(round(t, self.DECIMALS), k, v) for t, k, v in self.returned_value],
         }
 
     @classmethod

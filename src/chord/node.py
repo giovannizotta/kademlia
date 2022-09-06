@@ -327,6 +327,7 @@ class ChordNode(DHTNode):
             # ask to the node responsible for the key on index
             node, _ = yield from self.find_node_on_index(self.ids[index], index, ask_to=to)
             if node is None:
+                self.log(f"Join failed: find node on index {index} returned None", level=logging.ERROR)
                 raise DHTTimeoutError()
             # ask node its successor
             sent_req = self.ask(
@@ -359,7 +360,7 @@ class ChordNode(DHTNode):
             self.succ[index] = node_succ
             return True
         except DHTTimeoutError:
-            self.log(f"Timeout on join on index {index}", level=logging.WARNING)
+            self.log(f"Join failed: set pred or succ on {index} timed out", level=logging.WARNING)
             return False
 
     def join_network(self, to: ChordNode) -> SimpyProcess[bool]:
