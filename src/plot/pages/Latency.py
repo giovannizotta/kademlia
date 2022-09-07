@@ -10,8 +10,6 @@ from simulation.campaigns import CONF
 from simulation.constants import DEFAULT_PEER_TIMEOUT, CLIENT_TIMEOUT_MULTIPLIER, DEFAULT_MAX_TIME
 
 
-
-
 def main():
     st.title("Latency experienced by clients")
 
@@ -99,7 +97,6 @@ def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str
     return line + ci
 
 
-
 def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
     find_df = find_df.sort_values(by="time", ignore_index=True)
     # if dht == "KAD":
@@ -118,7 +115,6 @@ def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
 
     line, ci = get_line_ci_chart(hit_df, "Time", "Hit rate")
     return line + ci
-
 
 
 if __name__ == "__main__":

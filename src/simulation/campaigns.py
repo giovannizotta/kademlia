@@ -1,20 +1,48 @@
 from runexpy.campaign import Campaign
-from runexpy.result import Result
-from runexpy.runner import ParallelRunner, SimpleRunner
-from runexpy.utils import DefaultParamsT, IterParamsT
+from runexpy.runner import ParallelRunner
+from runexpy.utils import DefaultParamsT
 
 from simulation.constants import DEFAULT_MAX_TIME, DEFAULT_NODES, DEFAULT_SEED, DEFAULT_LOGGING, DEFAULT_CLIENT_RATE, \
     DEFAULT_EXT, DEFAULT_ALPHA, DEFAULT_K, DEFAULT_QUEUE_CAPACITY, DEFAULT_N_KEYS, DEFAULT_JOINRATE, DEFAULT_CRASHRATE
 from simulation.simulator import Simulator
 
-CONF: IterParamsT = {
+normal_conf = {
     "dht": [Simulator.KAD, Simulator.CHORD],
-    "rate": [0.1],
+    "rate": [0.1, 0.5, 1],
     "seed": list(range(420, 430)),
-    "nkeys": [1000],
-    "crashrate": [0.1],
-    "joinrate": [1],
+    "nkeys": [1000, 10000],
+    "crashrate": [0.01, 0.1],
+    "joinrate": [0.1, 1],
 }
+
+high_churn_conf = {
+    "dht": [Simulator.KAD, Simulator.CHORD],
+    "rate": [0.1, 0.5, 1],
+    "seed": list(range(420, 430)),
+    "nkeys": [1000, 10000],
+    "crashrate": [1],
+    "joinrate": [10],
+}
+
+no_churn_conf = {
+    "dht": [Simulator.KAD, Simulator.CHORD],
+    "rate": [0.1, 0.5, 1],
+    "seed": list(range(420, 430)),
+    "nkeys": [1000, 10000],
+    "crashrate": [0],
+    "joinrate": [0],
+}
+
+high_load_conf = {
+    "dht": [Simulator.KAD, Simulator.CHORD],
+    "rate": [10],
+    "seed": list(range(420, 430)),
+    "nkeys": [1000, 10000],
+    "crashrate": [0, 0.1],
+    "joinrate": [0, 1],
+}
+
+CONF = [normal_conf, high_churn_conf, no_churn_conf, high_load_conf]
 
 
 def main():
@@ -38,9 +66,9 @@ def main():
     }
 
     campaign = Campaign.new(script, campaign_dir, default_params, overwrite=True)
+    print(f"Executing {len(list(campaign.list_param_combinations(CONF)))} experiments")
 
     runner = ParallelRunner(100)
-    # runner = SimpleRunner()
     campaign.run_missing_experiments(runner, CONF)
 
 
