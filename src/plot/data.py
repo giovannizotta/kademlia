@@ -88,6 +88,21 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     df = pd.concat(result, ignore_index=True)
     return df
 
+@st.experimental_memo
+def get_stored_values(conf: IterParamsT) -> pd.DataFrame:
+    c = Campaign.load(CAMPAIGN_DIR)
+    fn = partial(read_client, target="true_value", columns=["time", "key", "value"])
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
+    df = pd.concat(result, ignore_index=True)
+    return df
+
+@st.experimental_memo
+def get_found_values(conf: IterParamsT) -> pd.DataFrame:
+    c = Campaign.load(CAMPAIGN_DIR)
+    fn = partial(read_client, target="returned_value", columns=["time", "key", "value"])
+    result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
+    df = pd.concat(result, ignore_index=True)
+    return df
 
 def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> pd.DataFrame:
@@ -108,7 +123,7 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
         sem=("slot_metric", "sem"),
     ).reset_index().fillna(0)
 
-    df["slot"] *= df["slot_width"]
+    # df["slot"] *= df["slot_width"]
 
     df["ci95_hi"] = df["mean"] + 1.96 * df["sem"]
     df["ci95_lo"] = df["mean"] - 1.96 * df["sem"]
