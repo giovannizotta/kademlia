@@ -334,12 +334,15 @@ class DHTNode(Node):
         self.log(f"Serving {packet}")
         msg = packet.message
         key = msg.data["key"]
+        packets: List[Packet] = list()
+        hops = -1
         try:
             nodes, hops = yield from self.unzip_find(key, self.env.all_of)
             requests = self.ask(nodes, msg.data, MessageType.SET_VALUE)
-            yield from self.wait_resps(requests, [])
+            yield from self.wait_resps(requests, packets)
         except DHTTimeoutError:
-            hops = -1
+            if not packets:
+                hops = -1
 
         reply = Message(
             ptype=MessageType.STORE_VALUE_REPLY, data=dict(hops=hops), event=msg.event
