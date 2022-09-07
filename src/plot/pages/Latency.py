@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from plot.data import get_client_requests, get_client_timeout, get_slots_with_ci, get_ecdf_ci_horizontal, \
-    get_stored_values, get_found_values
+    get_stored_values, get_found_values, get_line_ci_chart
 from plot.healthy import get_healthy_chart
 from plot.options import select_slider, time_slider
 from simulation.campaigns import CONF
@@ -47,7 +47,7 @@ def main():
         find_df = find_df[(find_df["time"] >= start_time) & (find_df["time"] <= end_time)]
 
         cdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
-        testcdfs.append(get_latency_ecdf_test(client_df, timeout_df, dht))
+        testcdfs.append(get_latency_over_time(client_df, timeout_df, dht))
         healthy.append(get_healthy_chart(conf, start_time, end_time, dht))
         hit_rates.append(get_hit_rate_chart(find_df, store_df, dht))
 
@@ -61,19 +61,24 @@ def main():
     layers = alt.layer(*healthy)
     st.altair_chart(layers, use_container_width=True)
 
+    st.markdown("Hit rate over time")
+    layers = alt.layer(*hit_rates)
+    st.altair_chart(layers, use_container_width=True)
 
-def get_latency_ecdf_test(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
-    client_df = client_df[client_df["seed"] == 420]
+
+def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
+    timeout_df["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
+    timeout_df["hops"] = -1
+    client_df = pd.concat([client_df, timeout_df], ignore_index=True)
+
     client_df = client_df.sort_values(by="latency", ignore_index=True)
-    client_df["count"] = range(len(client_df))
-    timeout_df = timeout_df[timeout_df["seed"] == 420]
-    print(f"{dht} has had {len(client_df)} successes and {len(timeout_df)} timeouts")
 
-    return alt.Chart(client_df).mark_point(filled=True, size=30).encode(
-        x=alt.X('latency', axis=alt.Axis(title="Latency")),
-        y=alt.Y('count', title="CDF"),
-        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
-    )
+    client_df = get_slots_with_ci(client_df, "time", "latency", "mean", nslots=100)
+    client_df["dht"] = dht
+
+    line, ci = get_line_ci_chart(client_df, "Time", "Latency")
+
+    return line + ci
 
 
 def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
@@ -107,16 +112,13 @@ def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
     hit_df["hit"] = hit_df["value_store"] == hit_df["value_find"]
     # if dht == "KAD":
     #     print(hit_df[(hit_df["seed"] == 429) & (hit_df["key"] == "key_920")].sort_values(by=["seed", "time"], ignore_index=True).tail(50))
-    hit_rate = hit_df.groupby("seed").agg(
-        hit_rate=("hit", lambda x: x.sum() / x.count()
-                  ),
-    )
-    print(hit_rate)
-    return alt.Chart(hit_rate).mark_bar().encode(
-        x=alt.X('time', axis=alt.Axis(title="time")),
-        y=alt.Y('hit_rate', title="Hit rate"),
-        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
-    )
+    # hit_df["hit_rate"] = hit_df.groupby("seed")["hit"].cumsum() / hit_df.groupby("seed")["hit"].cumcount()
+    hit_df = get_slots_with_ci(hit_df, "time", "hit", "mean", nslots=100)
+    hit_df["dht"] = dht
+
+    line, ci = get_line_ci_chart(hit_df, "Time", "Hit rate")
+    return line + ci
+
 
 
 if __name__ == "__main__":

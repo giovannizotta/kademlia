@@ -106,10 +106,11 @@ def get_found_values(conf: IterParamsT) -> pd.DataFrame:
 
 def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> pd.DataFrame:
-    df["slot_column_max"] = df.groupby("seed")[slot_column].transform("max")
-    df["slot_column_min"] = df.groupby("seed")[slot_column].transform("min")
-    df["slot_width"] = (df["slot_column_max"] - df["slot_column_min"]) / nslots
-    df["slot"] = df[slot_column] // df["slot_width"]
+    # df["slot_column_max"] = df.groupby("seed")[slot_column].transform("max")
+    # df["slot_column_min"] = df.groupby("seed")[slot_column].transform("min")
+    # df["slot_width"] = (df["slot_column_max"] - df["slot_column_min"]) / nslots
+    slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
+    df["slot"] = df[slot_column] // slot_width
 
     # foreach seed, foreach slot, aggregate the metric + fill missing values
     df = df.groupby(["seed", "slot"]).agg(
@@ -123,7 +124,7 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
         sem=("slot_metric", "sem"),
     ).reset_index().fillna(0)
 
-    # df["slot"] *= df["slot_width"]
+    df["slot"] *= slot_width
 
     df["ci95_hi"] = df["mean"] + 1.96 * df["sem"]
     df["ci95_lo"] = df["mean"] - 1.96 * df["sem"]
