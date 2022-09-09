@@ -1,4 +1,4 @@
-from plot.plot import plots
+from plot.plotter import plots
 from simulation.campaigns import high_load_conf
 
 plots(high_load_conf)
