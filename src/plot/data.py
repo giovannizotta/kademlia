@@ -9,7 +9,7 @@ import streamlit as st
 from runexpy.campaign import Campaign
 from runexpy.utils import IterParamsT
 from runexpy.result import Result
-import dd as dd
+import dask.dataframe as dd
 PROCESSES = 32
 CAMPAIGN_DIR = 'campaigns/experiment'
 
