@@ -39,7 +39,10 @@ def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> dd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = dd.from_pandas(pd.DataFrame(dct[target].items(), columns=["node", "time"]), npartitions=1)
+    df = pd.DataFrame(dct[target].items(), columns=["node", "time"])
+    assert df["time"].isna().sum() == 0
+    df["time"] = pd.to_numeric(df["time"])
+    tmp = dd.from_pandas(df, npartitions=1)
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
