@@ -36,6 +36,12 @@ def plots(conf: IterParamsT):
         find_df = get_found_values(conf)
         store_df = get_stored_values(conf)
         load_df = get_queue_load(conf)
+        print("client_df", client_df.dtypes)
+        print("timeout_df", timeout_df.dtypes)
+        print("find_df", find_df.dtypes)
+        print("store_df", store_df.dtypes)
+        print("load_df", load_df.dtypes)
+
         if joinrate > 0 or crashrate > 0:
             active_df = get_active_df(conf)
             active_df = active_df[(active_df["time"] >= start_time) & (active_df["time"] <= end_time)]
