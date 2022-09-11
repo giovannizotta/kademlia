@@ -115,6 +115,7 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
     # foreach seed, foreach slot, aggregate the metric + fill missing values
     df = df.groupby(["seed", "slot"]).agg(
         slot_metric=(metric, slot_agg),
+        slot_metric_count=(metric, "count"),
     ).unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")["slot_metric"].ffill().fillna(0)
 
@@ -122,6 +123,7 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
     df = df.groupby(["slot"]).agg(
         mean=("slot_metric", "mean"),
         sem=("slot_metric", "sem"),
+        count=("slot_metric_count", "sum"),
     ).reset_index().fillna(0)
 
     df["slot"] *= slot_width
@@ -144,7 +146,7 @@ def get_line_ci_chart(df, xlabel, ylabel):
         y='ci95_lo',
         y2='ci95_hi',
         color=alt.Color('dht'),
-        tooltip=['mean', 'ci95_hi', 'ci95_lo'],
+        tooltip=['mean', 'ci95_hi', 'ci95_lo', 'count'],
     )
     return line, ci
 
