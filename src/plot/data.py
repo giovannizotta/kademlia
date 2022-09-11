@@ -9,103 +9,103 @@ import streamlit as st
 from runexpy.campaign import Campaign
 from runexpy.utils import IterParamsT
 from runexpy.result import Result
-
+import dd as dd
 PROCESSES = 32
 CAMPAIGN_DIR = 'campaigns/experiment'
 
-def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
-    # return pd.DataFrame([])
+def read_load(res: Tuple[Result, Dict[str, str]]) -> dd.DataFrame:
+    # return dd.from_pandas(pd.DataFrame([]))
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
     result = []
     for node, queue_load in dct["queue_load"].items():
-        tmp = pd.DataFrame(queue_load, columns=["time", "load"])
+        tmp = dd.from_pandas(dd.from_pandas(pd.DataFrame(queue_load, columns=["time", "load"])))
         tmp["node"] = node
         for column in ['seed', 'dht']:
             tmp[column] = campaign_results.params[column]
         result.append(tmp)
-    return pd.concat(result, ignore_index=True)
+    return dd.concat(result, ignore_index=True)
 
 
 @st.experimental_memo
-def get_queue_load(conf: IterParamsT) -> pd.DataFrame:
+def get_queue_load(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     result = Pool(processes=PROCESSES).map(read_load, c.get_results_for(conf))
-    return pd.concat(result, ignore_index=True)
+    return dd.concat(result, ignore_index=True)
 
 
-def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> pd.DataFrame:
+def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> dd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = pd.DataFrame(dct[target].items(), columns=["node", "time"])
+    tmp = dd.from_pandas(pd.DataFrame(dct[target].items(), columns=["node", "time"]))
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
 
 
 @st.experimental_memo
-def get_crash_time(conf: IterParamsT) -> pd.DataFrame:
+def get_crash_time(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_times, target="crashed_time")
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    return pd.concat(result, ignore_index=True)
+    return dd.concat(result, ignore_index=True)
 
 
 @st.experimental_memo
-def get_join_time(conf: IterParamsT) -> pd.DataFrame:
+def get_join_time(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_times, target="joined_time")
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    return pd.concat(result, ignore_index=True)
+    return dd.concat(result, ignore_index=True)
 
 
-def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> pd.DataFrame:
+def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> dd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = pd.DataFrame(dct[target], columns=columns)
+    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns))
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
 
 
 @st.experimental_memo
-def get_client_requests(conf: IterParamsT) -> pd.DataFrame:
+def get_client_requests(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="client_requests", columns=["time", "latency", "hops"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    df = pd.concat(result, ignore_index=True)
+    df = dd.concat(result, ignore_index=True)
     return df
 
 
 @st.experimental_memo
-def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
+def get_client_timeout(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="timed_out_requests", columns=["time"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    df = pd.concat(result, ignore_index=True)
+    df = dd.concat(result, ignore_index=True)
     return df
 
 @st.experimental_memo
-def get_stored_values(conf: IterParamsT) -> pd.DataFrame:
+def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="true_value", columns=["time", "key", "value"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    df = pd.concat(result, ignore_index=True)
+    df = dd.concat(result, ignore_index=True)
     return df
 
 @st.experimental_memo
-def get_found_values(conf: IterParamsT) -> pd.DataFrame:
+def get_found_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
     fn = partial(read_client, target="returned_value", columns=["time", "key", "value"])
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
-    df = pd.concat(result, ignore_index=True)
+    df = dd.concat(result, ignore_index=True)
     return df
 
-def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
-                      nslots: int = 100) -> pd.DataFrame:
+def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg: str,
+                      nslots: int = 100) -> dd.DataFrame:
     # df["slot_column_max"] = df.groupby("seed")[slot_column].transform("max")
     # df["slot_column_min"] = df.groupby("seed")[slot_column].transform("min")
     # df["slot_width"] = (df["slot_column_max"] - df["slot_column_min"]) / nslots
@@ -135,6 +135,7 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
 
 
 def get_line_ci_chart(df, xlabel, ylabel):
+    df = df.compute()
     line = alt.Chart(df).mark_line().encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y=alt.Y('mean', title=ylabel),
@@ -152,6 +153,7 @@ def get_line_ci_chart(df, xlabel, ylabel):
 
 
 def get_ecdf_ci_horizontal(df, xlabel, ylabel):
+    df = df.compute()
     points = alt.Chart(df).mark_point(filled=True, size=30).encode(
         x=alt.X('mean', axis=alt.Axis(title=xlabel)),
         y=alt.Y('slot', title=ylabel),

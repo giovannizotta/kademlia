@@ -1,5 +1,5 @@
 import numpy as np
-
+import dask.dataframe as dd
 from plot.data import *
 from plot.options import time_slider, select_slider
 from simulation.constants import DEFAULT_PEER_TIMEOUT, CLIENT_TIMEOUT_MULTIPLIER, DEFAULT_MAX_TIME
@@ -68,10 +68,10 @@ def plot(data, title):
     st.altair_chart(layers, use_container_width=True)
 
 
-def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
+def get_latency_over_time(client_df: dd.DataFrame, timeout_df: dd.DataFrame, dht: str) -> alt.Chart:
     timeout_df["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
     timeout_df["hops"] = -1
-    client_df = pd.concat([client_df, timeout_df], ignore_index=True)
+    client_df = dd.concat([client_df, timeout_df], ignore_index=True)
 
     client_df = client_df.sort_values(by="latency", ignore_index=True)
 
@@ -83,10 +83,10 @@ def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht
     return line + ci
 
 
-def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
+def get_latency_ecdf(client_df: dd.DataFrame, timeout_df: dd.DataFrame, dht: str) -> alt.Chart:
     timeout_df["latency"] = DEFAULT_PEER_TIMEOUT * CLIENT_TIMEOUT_MULTIPLIER
     timeout_df["hops"] = -1
-    client_df = pd.concat([client_df, timeout_df], ignore_index=True)
+    client_df = dd.concat([client_df, timeout_df], ignore_index=True)
 
     client_df = client_df.sort_values(by="latency", ignore_index=True)
     client_df["count"] = client_df.groupby("seed").cumcount()
@@ -101,10 +101,10 @@ def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str
     return line + ci
 
 
-def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
+def get_hit_rate_chart(find_df: dd.DataFrame, store_df: dd.DataFrame, dht: str):
     find_df = find_df.sort_values(by="time", ignore_index=True)
     store_df = store_df.sort_values(by="time", ignore_index=True)
-    hit_df = pd.merge_asof(find_df, store_df, on="time", by=["seed", "key"], suffixes=("_find", "_store"))
+    hit_df = dd.merge_asof(find_df, store_df, on="time", by=["seed", "key"], suffixes=("_find", "_store"))
 
     hit_df = hit_df[(hit_df["value_store"].notna()) & (hit_df["value_find"].notna())]
     hit_df["hit"] = hit_df["value_store"] == hit_df["value_find"]
@@ -152,12 +152,12 @@ def get_active_df(conf):
 def get_active_nodes(crash_time_df, join_time_df):
     join_time_df["increment"] = 1
     crash_time_df["increment"] = -1
-    df = pd.concat([join_time_df, crash_time_df], ignore_index=True).sort_values(by="time", ignore_index=True)
+    df = dd.concat([join_time_df, crash_time_df], ignore_index=True).sort_values(by="time", ignore_index=True)
     df["active_nodes"] = df.groupby("seed")["increment"].cumsum()
     return df
 
 
-def get_active_chart(active_df: pd.DataFrame, dht: str) -> alt.Chart:
+def get_active_chart(active_df: dd.DataFrame, dht: str) -> alt.Chart:
     df = get_slots_with_ci(active_df, "time", "active_nodes", "mean")
     df["dht"] = dht
 
