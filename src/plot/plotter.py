@@ -17,7 +17,7 @@ def plots(conf: IterParamsT):
     st.markdown(f"Client arrival rate: {clientrate}")
 
     latency_ecdfs = list()
-    load_ecdfs = list()
+    # load_ecdfs = list()
     active_over_time = list()
     latency_over_time = list()
     hit_rates_over_time = list()
@@ -35,19 +35,20 @@ def plots(conf: IterParamsT):
         timeout_df = get_client_timeout(conf)
         find_df = get_found_values(conf)
         store_df = get_stored_values(conf)
-        load_df = get_queue_load(conf)
-        active_df = get_active_df(conf)
+        # load_df = get_queue_load(conf)
+        if joinrate > 0 or crashrate > 0:
+            active_df = get_active_df(conf)
+            active_df = active_df[(active_df["time"] >= start_time) & (active_df["time"] <= end_time)]
+            active_over_time.append(get_active_chart(active_df, dht))
 
         client_df = client_df[(client_df["time"] >= start_time) & (client_df["time"] <= end_time)]
         timeout_df = timeout_df[(timeout_df["time"] >= start_time) & (timeout_df["time"] <= end_time)]
         find_df = find_df[(find_df["time"] >= start_time) & (find_df["time"] <= end_time)]
-        active_df = active_df[(active_df["time"] >= start_time) & (active_df["time"] <= end_time)]
 
         latency_ecdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
         latency_over_time.append(get_latency_over_time(client_df, timeout_df, dht))
-        load_ecdfs.append(get_loads_ecdf(load_df, dht))
+        # load_ecdfs.append(get_loads_ecdf(load_df, dht))
         hit_rates_over_time.append(get_hit_rate_chart(find_df, store_df, dht))
-        active_over_time.append(get_active_chart(active_df, dht))
 
     plot(latency_ecdfs, "Latency ECDF")
 
@@ -55,9 +56,10 @@ def plots(conf: IterParamsT):
 
     plot(hit_rates_over_time, "Hit rate over time")
 
-    plot(load_ecdfs, "Load ECDF")
+    # plot(load_ecdfs, "Load ECDF")
 
-    plot(active_over_time, "Active nodes over time")
+    if joinrate > 0 or crashrate > 0:
+        plot(active_over_time, "Active nodes over time")
 
 
 def plot(data, title):

@@ -42,7 +42,7 @@ high_load_conf = {
     "joinrate": [0, 1],
 }
 
-CONF = [normal_conf, high_churn_conf, no_churn_conf, high_load_conf]
+CONF = [normal_conf, high_churn_conf, no_churn_conf]
 
 
 def main():
