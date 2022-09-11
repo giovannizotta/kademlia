@@ -20,7 +20,7 @@ def read_load(res: Tuple[Result, Dict[str, str]]) -> dd.DataFrame:
         dct = json.load(f)
     result = []
     for node, queue_load in dct["queue_load"].items():
-        tmp = dd.from_pandas(dd.from_pandas(pd.DataFrame(queue_load, columns=["time", "load"])))
+        tmp = dd.from_pandas(pd.DataFrame(queue_load, columns=["time", "load"]), npartitions=1)
         tmp["node"] = node
         for column in ['seed', 'dht']:
             tmp[column] = campaign_results.params[column]
@@ -39,7 +39,7 @@ def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> dd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = dd.from_pandas(pd.DataFrame(dct[target].items(), columns=["node", "time"]))
+    tmp = dd.from_pandas(pd.DataFrame(dct[target].items(), columns=["node", "time"]), npartitions=1)
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
@@ -61,11 +61,11 @@ def get_join_time(conf: IterParamsT) -> dd.DataFrame:
     return dd.concat(result, ignore_index=True)
 
 
-def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> dd.DataFrame:
+def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> pd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns))
+    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns), npartitions=1)
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
