@@ -123,7 +123,9 @@ def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg:
     df["slot"] = df[slot_column] // slot_width
 
     # foreach seed, foreach slot, aggregate the metric + fill missing values
-    df = df.groupby(["seed", "slot"]).aggregate([slot_agg, "count"]).unstack().stack(dropna=False).reset_index()
+    df = df.groupby(["seed", "slot"]).aggregate({
+            metric: [slot_agg, "count"],
+        }).unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")[slot_agg].ffill().fillna(0)
 
     # foreach slot, compute the mean across seeds aggregate results with confidence intervals
