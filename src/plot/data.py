@@ -44,10 +44,9 @@ def read_times(res: Tuple[Result, Dict[str, str]], target: str) -> dd.DataFrame:
     df = pd.DataFrame(dct[target].items(), columns=["node", "time"])
     assert df["time"].isna().sum() == 0
     df["time"] = pd.to_numeric(df["time"])
-    tmp = dd.from_pandas(df, npartitions=1)
     for column in ['seed', 'dht']:
-        tmp[column] = campaign_results.params[column]
-    return tmp
+        df[column] = campaign_results.params[column]
+    return dd.from_pandas(df, npartitions=1)
 
 
 @st.experimental_memo
@@ -70,13 +69,13 @@ def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: Dict[s
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns.keys()), npartitions=1)
+    tmp = pd.DataFrame(dct[target], columns=columns.keys())
     for colname, isnumeric in columns.items():
         if isnumeric:
             tmp[colname] = pd.to_numeric(tmp[colname])
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
-    return tmp
+    return dd.from_pandas(tmp, npartitions=1)
 
 
 @st.experimental_memo
@@ -100,7 +99,7 @@ def get_client_timeout(conf: IterParamsT) -> dd.DataFrame:
 @st.experimental_memo
 def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="true_value", columns={"time": True, "key": False, "value": True})
+    fn = partial(read_client, target="true_value", columns={"time": True, "key": False, "value": False})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
@@ -109,7 +108,7 @@ def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
 @st.experimental_memo
 def get_found_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="returned_value", columns={"time": True, "key": False, "value": True})
+    fn = partial(read_client, target="returned_value", columns={"time": True, "key": False, "value": False})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
