@@ -115,7 +115,7 @@ def get_found_values(conf: IterParamsT) -> dd.DataFrame:
 
 
 def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg: str,
-                      nslots: int = 100) -> dd.DataFrame:
+                      nslots: int = 100) -> pd.DataFrame:
     # df["slot_column_max"] = df.groupby("seed")[slot_column].transform("max")
     # df["slot_column_min"] = df.groupby("seed")[slot_column].transform("min")
     # df["slot_width"] = (df["slot_column_max"] - df["slot_column_min"]) / nslots
@@ -125,7 +125,7 @@ def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg:
     # foreach seed, foreach slot, aggregate the metric + fill missing values
     df = df.groupby(["seed", "slot"]).aggregate({
             metric: [slot_agg, "count"],
-        }).unstack().stack(dropna=False).reset_index()
+        }).compute().unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")[slot_agg].ffill().fillna(0)
 
     # foreach slot, compute the mean across seeds aggregate results with confidence intervals
@@ -143,7 +143,7 @@ def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg:
 
 
 def get_line_ci_chart(df, xlabel, ylabel):
-    df = df.compute()
+    # df = df.compute()
     line = alt.Chart(df).mark_line().encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y=alt.Y('mean', title=ylabel),
@@ -161,7 +161,7 @@ def get_line_ci_chart(df, xlabel, ylabel):
 
 
 def get_ecdf_ci_horizontal(df, xlabel, ylabel):
-    df = df.compute()
+    # df = df.compute()
     points = alt.Chart(df).mark_point(filled=True, size=30).encode(
         x=alt.X('mean', axis=alt.Axis(title=xlabel)),
         y=alt.Y('slot', title=ylabel),
