@@ -102,7 +102,8 @@ setup(
         'test': ['pytest>=7.1.2'],
         'plot': [
             'streamlit',
-            'altair_saver'
+            'altair_saver',
+            'selenium',
             ]
     },
     # If there are data files included in your packages that need to be
