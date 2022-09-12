@@ -122,9 +122,12 @@ def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg:
     slot_width = (df[slot_column].max() - df[slot_column].min()) / nslots
     df["slot"] = df[slot_column] // slot_width
 
+    df["slot_metric_count"] = 0
+
     # foreach seed, foreach slot, aggregate the metric + fill missing values
     df = df.groupby(["seed", "slot"]).aggregate({
-            metric: [slot_agg, "count"],
+            metric: slot_agg,
+            "slot_metric_count": "count",
         }).compute().unstack().stack(dropna=False).reset_index()
     df["slot_metric"] = df.groupby("seed")[slot_agg].ffill().fillna(0)
 
