@@ -66,11 +66,14 @@ def get_join_time(conf: IterParamsT) -> dd.DataFrame:
     return dd.concat(result, ignore_index=True)
 
 
-def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[str]) -> pd.DataFrame:
+def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: Dict[str, bool]) -> pd.DataFrame:
     campaign_results, files = res
     with open(files["data.json"]) as f:
         dct = json.load(f)
-    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns), npartitions=1)
+    tmp = dd.from_pandas(pd.DataFrame(dct[target], columns=columns.keys()), npartitions=1)
+    for colname, isnumeric in columns.items():
+        if isnumeric:
+            tmp[colname] = pd.to_numeric(tmp[colname])
     for column in ['seed', 'dht']:
         tmp[column] = campaign_results.params[column]
     return tmp
@@ -79,7 +82,7 @@ def read_client(res: Tuple[Result, Dict[str, str]], target: str, columns: List[s
 @st.experimental_memo
 def get_client_requests(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="client_requests", columns=["time", "latency", "hops"])
+    fn = partial(read_client, target="client_requests", columns={"time": True, "latency": True, "hops": True})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
@@ -88,7 +91,7 @@ def get_client_requests(conf: IterParamsT) -> dd.DataFrame:
 @st.experimental_memo
 def get_client_timeout(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="timed_out_requests", columns=["time"])
+    fn = partial(read_client, target="timed_out_requests", columns={"time": True})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
@@ -97,7 +100,7 @@ def get_client_timeout(conf: IterParamsT) -> dd.DataFrame:
 @st.experimental_memo
 def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="true_value", columns=["time", "key", "value"])
+    fn = partial(read_client, target="true_value", columns={"time": True, "key": False, "value": True})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
@@ -106,7 +109,7 @@ def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
 @st.experimental_memo
 def get_found_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
-    fn = partial(read_client, target="returned_value", columns=["time", "key", "value"])
+    fn = partial(read_client, target="returned_value", columns={"time": True, "key": False, "value": True})
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
