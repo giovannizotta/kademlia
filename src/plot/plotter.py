@@ -65,7 +65,7 @@ def plots(conf: IterParamsT):
 def plot(data, title):
     st.markdown(f"## {title}")
     layers = alt.layer(*data)
-    layers.save(f"plots/{title}.svg")
+    layers.save(f"plots/{title}.pdf")
     st.altair_chart(layers, use_container_width=True)
 
 

@@ -103,7 +103,6 @@ setup(
         'plot': [
             'streamlit',
             'altair_saver',
-            'selenium',
             ]
     },
     # If there are data files included in your packages that need to be
