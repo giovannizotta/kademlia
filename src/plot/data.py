@@ -1,17 +1,19 @@
 import json
 from functools import partial
-from multiprocess.pool import Pool
 from typing import List, Tuple, Dict
 
 import altair as alt
+import dask.dataframe as dd
 import pandas as pd
 import streamlit as st
+from multiprocess.pool import Pool
 from runexpy.campaign import Campaign
-from runexpy.utils import IterParamsT
 from runexpy.result import Result
-import dask.dataframe as dd
+from runexpy.utils import IterParamsT
+
 PROCESSES = 32
 CAMPAIGN_DIR = 'campaigns/experiment'
+
 
 def read_load(res: Tuple[Result, Dict[str, str]]) -> dd.DataFrame:
     # return dd.from_pandas(pd.DataFrame([]))
@@ -91,6 +93,7 @@ def get_client_timeout(conf: IterParamsT) -> dd.DataFrame:
     df = dd.concat(result, ignore_index=True)
     return df
 
+
 @st.experimental_memo
 def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
@@ -99,6 +102,7 @@ def get_stored_values(conf: IterParamsT) -> dd.DataFrame:
     df = dd.concat(result, ignore_index=True)
     return df
 
+
 @st.experimental_memo
 def get_found_values(conf: IterParamsT) -> dd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
@@ -106,6 +110,7 @@ def get_found_values(conf: IterParamsT) -> dd.DataFrame:
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = dd.concat(result, ignore_index=True)
     return df
+
 
 def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> dd.DataFrame:
@@ -116,18 +121,14 @@ def get_slots_with_ci(df: dd.DataFrame, slot_column: str, metric: str, slot_agg:
     df["slot"] = df[slot_column] // slot_width
 
     # foreach seed, foreach slot, aggregate the metric + fill missing values
-    df = df.groupby(["seed", "slot"]).agg(
-        slot_metric=(metric, slot_agg),
-        slot_metric_count=(metric, "count"),
-    ).unstack().stack(dropna=False).reset_index()
-    df["slot_metric"] = df.groupby("seed")["slot_metric"].ffill().fillna(0)
+    df = df.groupby(["seed", "slot"]).aggregate([slot_agg, "count"]).unstack().stack(dropna=False).reset_index()
+    df["slot_metric"] = df.groupby("seed")[slot_agg].ffill().fillna(0)
 
     # foreach slot, compute the mean across seeds aggregate results with confidence intervals
-    df = df.groupby(["slot"]).agg(
-        mean=("slot_metric", "mean"),
-        sem=("slot_metric", "sem"),
-        count=("slot_metric_count", "sum"),
-    ).reset_index().fillna(0)
+    df = df.groupby(["slot"]).aggregate({
+        "slot_metric": ["mean", "sem"],
+        "count": "sum",
+    }).reset_index().fillna(0)
 
     df["slot"] *= slot_width
 
