@@ -138,16 +138,16 @@ def get_line_ci_chart(df, xlabel, ylabel):
     line = alt.Chart(df).mark_line().encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y=alt.Y('mean', title=ylabel),
-        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
+        color=alt.Color('dht', legend=alt.Legend(title="DHT", orient="bottom")),
         tooltip=['mean', 'ci95_lo', 'ci95_hi'],
-    )
+    ).properties(width=800, height=600)
     ci = alt.Chart(df).mark_area(opacity=0.2).encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y='ci95_lo',
         y2='ci95_hi',
-        color=alt.Color('dht'),
+        color=alt.Color('dht', legend=None),
         tooltip=['mean', 'ci95_hi', 'ci95_lo', 'count'],
-    )
+    ).properties(width=800, height=600)
     return line, ci
 
 
@@ -155,14 +155,14 @@ def get_ecdf_ci_horizontal(df, xlabel, ylabel):
     points = alt.Chart(df).mark_point(filled=True, size=30).encode(
         x=alt.X('mean', axis=alt.Axis(title=xlabel)),
         y=alt.Y('slot', title=ylabel),
-        color=alt.Color('dht', legend=alt.Legend(title="DHT")),
+        color=alt.Color('dht', legend=alt.Legend(title="DHT", orient="bottom")),
         tooltip=['mean', 'ci95_lo', 'ci95_hi'],
-    )
+    ).properties(width=800, height=600)
     ci = alt.Chart(df).mark_errorbar(ticks=True, size=5).encode(
         x=alt.X('ci95_lo', axis=alt.Axis(title="")),
         x2='ci95_hi',
         y='slot',
-        color=alt.Color('dht'),
+        color=alt.Color('dht', legend=None),
         tooltip=['mean', 'ci95_hi', 'ci95_lo'],
-    )
+    ).properties(width=800, height=600)
     return points, ci
