@@ -147,7 +147,7 @@ def get_line_ci_chart(df, xlabel, ylabel):
         y2='ci95_hi',
         color=alt.Color('dht', legend=None),
         tooltip=['mean', 'ci95_hi', 'ci95_lo', 'count'],
-    ).properties(width=400, height=300)
+    )
     return line, ci
 
 
@@ -164,5 +164,5 @@ def get_ecdf_ci_horizontal(df, xlabel, ylabel):
         y='slot',
         color=alt.Color('dht', legend=None),
         tooltip=['mean', 'ci95_hi', 'ci95_lo'],
-    ).properties(width=400, height=300)
+    )
     return points, ci
