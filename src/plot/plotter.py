@@ -60,6 +60,8 @@ def plots(conf: IterParamsT):
 
     plot(load_ecdfs, "Load ECDF")
 
+    plot(load_over_time, "Load over time")
+
     if joinrate > 0 or crashrate > 0:
         plot(active_over_time, "Active nodes over time")
 
