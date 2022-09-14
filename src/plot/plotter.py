@@ -52,15 +52,17 @@ def plots(conf: IterParamsT):
         load_over_time.append(get_load_over_time(load_df, dht))
         hit_rates_over_time.append(get_hit_rate_chart(find_df, store_df, dht))
 
-    plot(latency_ecdfs, "Latency ECDF")
+    lat_ecdf = plot(latency_ecdfs, "Latency ECDF")
 
-    plot(latency_over_time, "Latency over time")
+    lat_over_t = plot(latency_over_time, "Latency over time")
+
+    load_ecdf = plot(load_ecdfs, "Load ECDF")
+
+    load_over_t = plot(load_over_time, "Load over time")
+
+    combine_2x2([[lat_ecdf, lat_over_t], [load_ecdf, load_over_t]]).save("plots/metrics.pdf")
 
     plot(hit_rates_over_time, "Hit rate over time")
-
-    plot(load_ecdfs, "Load ECDF")
-
-    plot(load_over_time, "Load over time")
 
     if joinrate > 0 or crashrate > 0:
         plot(active_over_time, "Active nodes over time")
@@ -71,6 +73,14 @@ def plot(data, title):
     layers = alt.layer(*data)
     layers.save(f"plots/{title}.pdf")
     st.altair_chart(layers, use_container_width=True)
+    return layers
+
+
+def combine_2x2(data):
+    return alt.vconcat(
+        alt.hconcat(*data[0]),
+        alt.hconcat(*data[1]),
+    )
 
 
 def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str) -> alt.Chart:
@@ -83,7 +93,7 @@ def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht
     client_df = get_slots_with_ci(client_df, "time", "latency", "mean", nslots=100)
     client_df["dht"] = dht
 
-    line, ci = get_line_ci_chart(client_df, "Time", "Latency")
+    line, ci = get_line_ci_chart(client_df, "Latency over time", "Time", "Latency")
 
     return line + ci
 
@@ -101,7 +111,7 @@ def get_latency_ecdf(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht: str
     max = client_df["slot"].max()
     client_df["slot"] /= max
 
-    line, ci = get_ecdf_ci_horizontal(client_df, "Latency", "CDF")
+    line, ci = get_ecdf_ci_horizontal(client_df, "Latency ECDF", "Latency", "CDF")
 
     return line + ci
 
@@ -116,7 +126,7 @@ def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
     hit_df = get_slots_with_ci(hit_df, "time", "hit", "mean", nslots=100)
     hit_df["dht"] = dht
 
-    line, ci = get_line_ci_chart(hit_df, "Time", "Hit rate")
+    line, ci = get_line_ci_chart(hit_df, "Hit rate over time", "Time", "Hit rate")
     return line + ci
 
 
@@ -140,7 +150,7 @@ def get_load_over_time(df: pd.DataFrame, dht: str):
     df = get_slots_with_ci(df, "time", "load", "mean", nslots=100)
     df["dht"] = dht
 
-    line, ci = get_line_ci_chart(df, "Time", "Load")
+    line, ci = get_line_ci_chart(df, "Load over time", "Time", "Load")
 
     return line + ci
 
@@ -167,7 +177,7 @@ def get_load_ecdf(df, dht):
     max = df["slot"].max()
     df["slot"] /= max
 
-    line, ci = get_ecdf_ci_horizontal(df, "Load", "CDF")
+    line, ci = get_ecdf_ci_horizontal(df, "Load ECDF", "Load", "CDF")
 
     return line + ci
 
@@ -191,5 +201,5 @@ def get_active_chart(active_df: pd.DataFrame, dht: str) -> alt.Chart:
     df = get_slots_with_ci(active_df, "time", "active_nodes", "mean")
     df["dht"] = dht
 
-    line, ci = get_line_ci_chart(df, "Time", "Healthy nodes")
+    line, ci = get_line_ci_chart(df, "Active nodes over time", "Time", "Healthy nodes")
     return line + ci

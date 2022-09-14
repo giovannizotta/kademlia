@@ -13,6 +13,7 @@ from runexpy.result import Result
 PROCESSES = 32
 CAMPAIGN_DIR = 'campaigns/experiment'
 
+
 def read_load(res: Tuple[Result, Dict[str, str]]) -> pd.DataFrame:
     # return pd.DataFrame([])
     campaign_results, files = res
@@ -88,6 +89,7 @@ def get_client_timeout(conf: IterParamsT) -> pd.DataFrame:
     df = pd.concat(result, ignore_index=True)
     return df
 
+
 @st.experimental_memo
 def get_stored_values(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
@@ -96,6 +98,7 @@ def get_stored_values(conf: IterParamsT) -> pd.DataFrame:
     df = pd.concat(result, ignore_index=True)
     return df
 
+
 @st.experimental_memo
 def get_found_values(conf: IterParamsT) -> pd.DataFrame:
     c = Campaign.load(CAMPAIGN_DIR)
@@ -103,6 +106,7 @@ def get_found_values(conf: IterParamsT) -> pd.DataFrame:
     result = Pool(processes=PROCESSES).map(fn, c.get_results_for(conf))
     df = pd.concat(result, ignore_index=True)
     return df
+
 
 def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg: str,
                       nslots: int = 100) -> pd.DataFrame:
@@ -134,13 +138,13 @@ def get_slots_with_ci(df: pd.DataFrame, slot_column: str, metric: str, slot_agg:
     return df
 
 
-def get_line_ci_chart(df, xlabel, ylabel):
+def get_line_ci_chart(df, title, xlabel, ylabel):
     line = alt.Chart(df).mark_line().encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y=alt.Y('mean', title=ylabel),
         color=alt.Color('dht', legend=alt.Legend(title="DHT", orient="bottom")),
         tooltip=['mean', 'ci95_lo', 'ci95_hi'],
-    ).properties(width=400, height=300)
+    ).properties(title=title)
     ci = alt.Chart(df).mark_area(opacity=0.2).encode(
         x=alt.X('slot', axis=alt.Axis(title=xlabel)),
         y='ci95_lo',
@@ -151,13 +155,13 @@ def get_line_ci_chart(df, xlabel, ylabel):
     return line, ci
 
 
-def get_ecdf_ci_horizontal(df, xlabel, ylabel):
+def get_ecdf_ci_horizontal(df, title, xlabel, ylabel):
     points = alt.Chart(df).mark_point(filled=True, size=30).encode(
         x=alt.X('mean', axis=alt.Axis(title=xlabel)),
         y=alt.Y('slot', title=ylabel),
         color=alt.Color('dht', legend=alt.Legend(title="DHT", orient="bottom")),
         tooltip=['mean', 'ci95_lo', 'ci95_hi'],
-    ).properties(width=400, height=300)
+    ).properties(title=title)
     ci = alt.Chart(df).mark_errorbar(ticks=True, size=5).encode(
         x=alt.X('ci95_lo', axis=alt.Axis(title="")),
         x2='ci95_hi',
