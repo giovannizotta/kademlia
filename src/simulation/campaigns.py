@@ -20,26 +20,17 @@ high_churn_conf = {
     "rate": [0.1, 0.5, 1],
     "seed": list(range(420, 430)),
     "nkeys": [1000, 10000],
-    "crashrate": [1],
-    "joinrate": [10],
+    "crashrate": [0.5, 1],
+    "joinrate": [5, 10],
 }
 
 no_churn_conf = {
     "dht": [Simulator.KAD, Simulator.CHORD],
-    "rate": [0.1, 0.5, 1],
+    "rate": [0.1, 0.2, 0.5, 1],
     "seed": list(range(420, 430)),
     "nkeys": [1000, 10000],
     "crashrate": [0],
     "joinrate": [0],
-}
-
-high_load_conf = {
-    "dht": [Simulator.KAD, Simulator.CHORD],
-    "rate": [10],
-    "seed": list(range(420, 430)),
-    "nkeys": [1000, 10000],
-    "crashrate": [0, 0.1],
-    "joinrate": [0, 1],
 }
 
 CONF = [normal_conf, high_churn_conf, no_churn_conf]
@@ -65,10 +56,10 @@ def main():
         "dht": None,
     }
 
-    campaign = Campaign.new(script, campaign_dir, default_params, overwrite=True)
+    campaign = Campaign.new(script, campaign_dir, default_params)
     print(f"Executing {len(list(campaign.list_param_combinations(CONF)))} experiments")
 
-    runner = ParallelRunner(100)
+    runner = ParallelRunner(64)
     campaign.run_missing_experiments(runner, CONF)
 
 
