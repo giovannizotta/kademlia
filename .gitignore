@@ -440,6 +440,4 @@ fabric.properties
 
 *.tmp
 
-typings/matplotlib
-typings/bitstring
-typings/networkx
+typings

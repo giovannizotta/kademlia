@@ -20,6 +20,7 @@ def plots(conf: IterParamsT):
     load_ecdfs = list()
     active_over_time = list()
     latency_over_time = list()
+    load_over_time = list()
     hit_rates_over_time = list()
     for dht in conf.get("dht"):
         conf = {
@@ -47,7 +48,8 @@ def plots(conf: IterParamsT):
 
         latency_ecdfs.append(get_latency_ecdf(client_df, timeout_df, dht))
         latency_over_time.append(get_latency_over_time(client_df, timeout_df, dht))
-        load_ecdfs.append(get_loads_ecdf(load_df, dht))
+        load_ecdfs.append(get_load_ecdf(load_df, dht))
+        load_over_time.append(get_load_over_time(load_df, dht))
         hit_rates_over_time.append(get_hit_rate_chart(find_df, store_df, dht))
 
     plot(latency_ecdfs, "Latency ECDF")
@@ -57,6 +59,8 @@ def plots(conf: IterParamsT):
     plot(hit_rates_over_time, "Hit rate over time")
 
     plot(load_ecdfs, "Load ECDF")
+
+    plot(load_over_time, "Load over time")
 
     if joinrate > 0 or crashrate > 0:
         plot(active_over_time, "Active nodes over time")
@@ -74,7 +78,7 @@ def get_latency_over_time(client_df: pd.DataFrame, timeout_df: pd.DataFrame, dht
     timeout_df["hops"] = -1
     client_df = pd.concat([client_df, timeout_df], ignore_index=True)
 
-    client_df = client_df.sort_values(by="latency", ignore_index=True)
+    # client_df = client_df.sort_values(by="latency", ignore_index=True)
 
     client_df = get_slots_with_ci(client_df, "time", "latency", "mean", nslots=100)
     client_df["dht"] = dht
@@ -116,7 +120,32 @@ def get_hit_rate_chart(find_df: pd.DataFrame, store_df: pd.DataFrame, dht: str):
     return line + ci
 
 
-def get_loads_ecdf(df, dht):
+def get_load_over_time(df: pd.DataFrame, dht: str):
+    df = df.sort_values(by=["seed", "node", "time"], ignore_index=True)
+    df["time_gap"] = df.groupby(["seed", "node"])["time"].diff().reset_index(drop=True)
+    df = df[df["time_gap"].notna()]
+    # fill value != 0?
+    df["load"] = df.groupby(["seed", "node"])["load"].shift(1, fill_value=0)
+
+    slot_width = (df["time"].max() - df["time"].min()) / 100
+    df["slot"] = df["time"] // slot_width
+
+    weighted_average = lambda x: np.average(x, weights=df.loc[x.index, "time_gap"])
+    # foreach seed, foreach slot, aggregate the metric + fill missing values
+    df = df.groupby(["seed", "slot", "node"]).agg(
+        load=("load", weighted_average)
+    ).reset_index()
+    df["time"] = df["slot"] * slot_width
+
+    df = get_slots_with_ci(df, "time", "load", "mean", nslots=100)
+    df["dht"] = dht
+
+    line, ci = get_line_ci_chart(df, "Time", "Load")
+
+    return line + ci
+
+
+def get_load_ecdf(df, dht):
     df = df.sort_values(by=["seed", "node", "time"], ignore_index=True)
     df["time_gap"] = df.groupby(["seed", "node"])["time"].diff().reset_index(drop=True)
     df = df[df["time_gap"].notna()]
